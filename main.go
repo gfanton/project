@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/oklog/run"
 	"github.com/peterbourgon/ff/v3"
@@ -14,7 +15,7 @@ import (
 )
 
 type RootConfig struct {
-	Verbose    bool
+	Debug      bool
 	RootDir    string
 	RootUser   string
 	ConfigFile string
@@ -30,9 +31,13 @@ func parseRootConfig(args []string) (*RootConfig, error) {
 	var cfg RootConfig
 	rootFlagSet.StringVar(&cfg.RootDir, "root", "~/code", "root directory project")
 	rootFlagSet.StringVar(&cfg.RootUser, "user", "", "root user project")
-	rootFlagSet.StringVar(&cfg.ConfigFile, "config", "", "root config project")
-	rootFlagSet.BoolVar(&cfg.Verbose, "v", false, "increase log verbosity")
-	err := ff.Parse(rootFlagSet, args, ff.WithConfigFileFlag("config"))
+	rootFlagSet.StringVar(&cfg.ConfigFile, "config", "~/.projectrc", "root config project")
+	rootFlagSet.BoolVar(&cfg.Debug, "debug", false, "increase log verbosity")
+
+	err := ff.Parse(rootFlagSet, args,
+		ff.WithConfigFileFlag("config"),
+		ff.WithAllowMissingConfigFile(true),
+	)
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse flags: %w", err)
 	}
@@ -49,7 +54,7 @@ func main() {
 	}
 
 	// init logger
-	logger = initLogger(rcfg.Verbose)
+	logger = initLogger(rcfg.Debug)
 	defer logger.Sync()
 
 	root := &ffcli.Command{
@@ -64,6 +69,8 @@ func main() {
 		Subcommands: []*ffcli.Command{
 			listCommand(rcfg),
 			newCommand(rcfg),
+			getCommand(rcfg),
+			queryCommand(rcfg),
 		},
 	}
 
@@ -81,6 +88,22 @@ func main() {
 		}, func(error) {
 			processCancel()
 		})
+	}
+
+	if strings.HasPrefix(rcfg.RootDir, "~") {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			logger.Fatal("unable to get home directory", zap.Error(err))
+		}
+
+		rcfg.RootDir = strings.Replace(rcfg.RootDir, "~", home, 1)
+	}
+
+	if _, err := os.Stat(rcfg.RootDir); os.IsNotExist(err) {
+		fmt.Printf("creating %s\n", rcfg.RootDir)
+		if err = os.MkdirAll(rcfg.RootDir, os.ModePerm); err != nil {
+			logger.Fatal("mkdir error", zap.Error(err))
+		}
 	}
 
 	// start process

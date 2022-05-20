@@ -31,7 +31,9 @@ func ProjectsList(ctx context.Context, cfg *ListConfig) error {
 		switch err {
 		case git.ErrRepositoryNotExists:
 			status = ListStatus_NotAGit
-			return nil
+			if !cfg.ListAll {
+				return nil
+			}
 		case nil:
 			status = ListStatus_Git
 		default:

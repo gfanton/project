@@ -4,6 +4,7 @@ go 1.17
 
 require (
 	github.com/go-git/go-git/v5 v5.4.2
+	github.com/lithammer/fuzzysearch v1.1.5
 	github.com/oklog/run v1.1.0
 	github.com/peterbourgon/ff/v3 v3.1.2
 	go.uber.org/zap v1.21.0
@@ -27,5 +28,6 @@ require (
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
 	golang.org/x/sys v0.0.0-20210510120138-977fb7262007 // indirect
+	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
 )

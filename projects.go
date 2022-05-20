@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -9,10 +10,51 @@ import (
 	"github.com/go-git/go-git/v5"
 )
 
+const GithubProvider = "github.com"
+
 type Project struct {
 	Path         string
 	Name         string
 	Organisation string
+}
+
+func ParseProject(rcfg *RootConfig, name string) (*Project, error) {
+	split := strings.Split(name, string(os.PathSeparator))
+	switch len(split) {
+	case 1:
+		if rcfg.RootUser != "" {
+			project := split[0]
+			pathslice := []string{rcfg.RootDir, rcfg.RootUser, split[0]}
+			return &Project{
+				Path:         strings.Join(pathslice, string(os.PathSeparator)),
+				Name:         project,
+				Organisation: rcfg.RootUser,
+			}, nil
+		}
+
+		return nil, fmt.Errorf("no default user defined")
+	case 2:
+		user, project := split[0], split[1]
+		pathslice := []string{rcfg.RootDir, user, project}
+		return &Project{
+			Path:         strings.Join(pathslice, string(os.PathSeparator)),
+			Name:         project,
+			Organisation: user,
+		}, nil
+	case 3:
+	default:
+		// provider
+	}
+
+	return nil, fmt.Errorf("malformed project name `%.30s`", name)
+}
+
+func (p *Project) GitHTTPUrl() string {
+	return fmt.Sprintf("https://%s/%s/%s.git", GithubProvider, p.Organisation, p.Name)
+}
+
+func (p *Project) GitSSHPUrl() string {
+	return fmt.Sprintf("git@%s:%s/%s", GithubProvider, p.Organisation, p.Name)
 }
 
 func (p *Project) git() string {
@@ -22,6 +64,10 @@ func (p *Project) git() string {
 func (p *Project) IsGit() bool {
 	_, err := os.Stat(p.git())
 	return !os.IsNotExist(err)
+}
+
+func (p *Project) String() string {
+	return fmt.Sprintf("%s/%s", p.Organisation, p.Name)
 }
 
 func (p *Project) OpenRepo() (*git.Repository, error) {
