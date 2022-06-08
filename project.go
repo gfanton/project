@@ -12,6 +12,8 @@ import (
 
 const GithubProvider = "github.com"
 
+const DefaultProvider = GithubProvider
+
 type Project struct {
 	Path         string
 	Name         string

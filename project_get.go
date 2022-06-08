@@ -4,9 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 
-	"github.com/go-git/go-git/v5"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
@@ -25,18 +23,9 @@ func ProjectsGet(ctx context.Context, rcfg *GetConfig, args ...string) error {
 		}
 	}
 
-	// agent, err := ssh.NewSSHAgentAuth("")
-	// if err != nil {
-	// 	return fmt.Errorf("unable to get ssh agent: %w", err)
-	// }
-
 	for _, p := range ps {
-		fmt.Printf("git clone %s\n", p.GitHTTPUrl())
-		_, err := git.PlainCloneContext(ctx, p.Path, false, &git.CloneOptions{
-			URL:      p.GitHTTPUrl(),
-			Progress: os.Stdout,
-			// Auth:     agent,
-		})
+		repo_path := fmt.Sprintf("%s/%s", p.Organisation, p.Name)
+		err := Git().CloneContext(ctx, DefaultProvider, repo_path, p.Path)
 		if err != nil {
 			fmt.Printf("unable to clone: %s/%s: %s\n",
 				p.Organisation, p.Name, err.Error())

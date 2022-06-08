@@ -1,8 +1,9 @@
-module github.com/gfanton/projects
+module github.com/gfanton/project
 
 go 1.17
 
 require (
+	github.com/BurntSushi/toml v1.1.0
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/lithammer/fuzzysearch v1.1.5
 	github.com/oklog/run v1.1.0
@@ -21,6 +22,7 @@ require (
 	github.com/jbenet/go-context v0.0.0-20150711004518-d14ea06fba99 // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20201106050909-4977a11b4351 // indirect
 	github.com/mitchellh/go-homedir v1.1.0 // indirect
+	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
 	go.uber.org/atomic v1.7.0 // indirect

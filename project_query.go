@@ -11,6 +11,7 @@ import (
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"go.uber.org/zap"
 )
 
 type ExcludeValue struct {
@@ -40,6 +41,11 @@ type QueryConfig struct {
 func ProjectsQuery(ctx context.Context, cfg *QueryConfig, values ...string) error {
 	value := strings.Join(values, "")
 	excludes := strings.Split(cfg.Exclude.String(), ":")
+	logger.Debug("query",
+		zap.String("lookup", value),
+		zap.Strings("exclude", excludes),
+		zap.Bool("all", cfg.All))
+
 	projects := []*Project{}
 	dist := map[string]int{}
 
@@ -59,6 +65,8 @@ func ProjectsQuery(ctx context.Context, cfg *QueryConfig, values ...string) erro
 		if val := fuzzy.RankMatchFold(value, name); val >= 0 {
 			dist[name] = val
 			projects = append(projects, p)
+			logger.Debug("matching project",
+				zap.String("name", name), zap.Int("distance", val))
 		}
 
 		return nil

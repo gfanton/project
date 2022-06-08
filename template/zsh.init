@@ -1,0 +1,47 @@
+# mostly from: https://github.com/ajeetdsouza/zoxide/blob/main/templates/zsh.txt
+
+function __projects_pwd() {
+    \builtin pwd -L
+}
+
+function __projects_cd() {
+    \builtin cd -- "$@" && echo "switched to '$@'"
+}
+
+function __projects_p() {
+    # shellcheck disable=SC2199
+    if [[ "$#" -eq 0 ]]; then
+        __projects_cd ~
+    elif [[ "$#" -eq 1 ]] && [[ "$1" = '-' ]]; then
+        echo "step 1"
+        if [[ -n "${OLDPWD}" ]]; then
+            echo "step 1.1"
+            __projects_cd "${OLDPWD}"
+        else
+            echo "step 1.2"
+            # shellcheck disable=SC2016
+            \builtin printf 'projects: $OLDPWD is not set'
+            return 1
+        fi
+    elif [[ "$#" -eq 1 ]] && [[ -d "$1" ]]; then
+        __projects_cd "$1"
+    # elif [[ "$@[-1]" == "${__projects_z_prefix}"* ]]; then
+    #     # shellcheck disable=SC2124
+    #     \builtin local result="${@[-1]}"
+    #     __projects_cd "{{ "${result:${#__projects_z_prefix}}" }}"
+    else
+        \builtin local result
+        # shellcheck disable=SC2312
+        result="$(\command {{.Exec}} --debug=false query --exclude "$(__projects_pwd)" -- "$@")" &&
+            __projects_cd "${result}"
+    fi
+}
+
+\builtin unalias p &>/dev/null || \builtin true
+function p() {
+    __projects_p "$@"
+}
+
+# To initialize project, add this to your configuration (usually ~/.zshrc):
+#
+# eval "$(project init zsh)"

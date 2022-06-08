@@ -5,39 +5,65 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/user"
+	"path/filepath"
 	"strings"
 
 	"github.com/oklog/run"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v3/fftoml"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 type RootConfig struct {
+	ConfigFile string
 	Debug      bool
 	RootDir    string
 	RootUser   string
-	ConfigFile string
+
+	help bool
+}
+
+var homedir string
+
+func init() {
+	u, err := user.Current()
+	if err != nil {
+		panic(err)
+	}
+	homedir = u.HomeDir
 }
 
 // flags
 var (
 	logger      *zap.Logger
-	rootFlagSet = flag.NewFlagSet("projects", flag.ExitOnError)
+	rootFlagSet = flag.NewFlagSet("project", flag.ExitOnError)
 )
 
 func parseRootConfig(args []string) (*RootConfig, error) {
 	var cfg RootConfig
-	rootFlagSet.StringVar(&cfg.RootDir, "root", "~/code", "root directory project")
+
+	defaultRootConfig := filepath.Join(homedir, ".projectrc")
+	defaultRootProject := filepath.Join(homedir, "code")
+
+	rootFlagSet.StringVar(&cfg.RootDir, "root", defaultRootProject, "root directory project")
 	rootFlagSet.StringVar(&cfg.RootUser, "user", "", "root user project")
-	rootFlagSet.StringVar(&cfg.ConfigFile, "config", "~/.projectrc", "root config project")
+	rootFlagSet.StringVar(&cfg.ConfigFile, "config", defaultRootConfig, "root config project")
 	rootFlagSet.BoolVar(&cfg.Debug, "debug", false, "increase log verbosity")
 
 	err := ff.Parse(rootFlagSet, args,
+		ff.WithEnvVarPrefix("PROJECT"),
 		ff.WithConfigFileFlag("config"),
 		ff.WithAllowMissingConfigFile(true),
+		ff.WithConfigFileParser(fftoml.Parser),
 	)
+
+	// expand path
+	cfg.RootDir = expandPath(cfg.RootDir)
+	cfg.ConfigFile = expandPath(cfg.ConfigFile)
+
 	if err != nil {
 		return nil, fmt.Errorf("unable to parse flags: %w", err)
 	}
@@ -58,15 +84,13 @@ func main() {
 	defer logger.Sync()
 
 	root := &ffcli.Command{
-		Name:    "projects [flags] <subcommand>",
+		Name:    "project [flags] <subcommand>",
 		FlagSet: rootFlagSet,
 		Exec: func(ctx context.Context, args []string) error {
-			if len(args) == 0 {
-				return flag.ErrHelp
-			}
-			return nil
+			return flag.ErrHelp
 		},
 		Subcommands: []*ffcli.Command{
+			initCommand(rcfg),
 			listCommand(rcfg),
 			newCommand(rcfg),
 			getCommand(rcfg),
@@ -78,10 +102,6 @@ func main() {
 	processCtx, processCancel := context.WithCancel(context.Background())
 	var process run.Group
 	{
-		// handle interrupt signals
-		execute, interrupt := run.SignalHandler(processCtx, os.Interrupt)
-		process.Add(execute, interrupt)
-
 		// add root command to process
 		process.Add(func() error {
 			return root.ParseAndRun(processCtx, args)
@@ -114,6 +134,14 @@ func main() {
 	default:
 		logger.Fatal(err.Error())
 	}
+}
+
+func expandPath(path string) string {
+	path = os.ExpandEnv(path)
+	if strings.HasPrefix(path, "~") {
+		return strings.Replace(path, "~", homedir, 1)
+	}
+	return path
 }
 
 func initLogger(verbose bool) *zap.Logger {
