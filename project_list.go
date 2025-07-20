@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"log"
 
 	"github.com/go-git/go-git/v5"
 	"github.com/peterbourgon/ff/v3/ffcli"
@@ -24,7 +25,7 @@ const (
 	ListStatus_InvalidGit ListStatus = "invalid"
 )
 
-func ProjectsList(ctx context.Context, cfg *ListConfig) error {
+func ProjectList(ctx context.Context, logger *log.Logger, cfg *ListConfig) error {
 	return WalkProject(cfg.RootDir, func(d fs.DirEntry, p *Project) error {
 		var status ListStatus
 		_, err := p.OpenRepo()
@@ -45,7 +46,7 @@ func ProjectsList(ctx context.Context, cfg *ListConfig) error {
 	})
 }
 
-func listCommand(rcfg *RootConfig) *ffcli.Command {
+func listCommand(logger *log.Logger, rcfg *RootConfig) *ffcli.Command {
 	var cfg ListConfig
 	cfg.RootConfig = rcfg
 
@@ -54,12 +55,12 @@ func listCommand(rcfg *RootConfig) *ffcli.Command {
 
 	return &ffcli.Command{
 		Name:        "list",
-		ShortUsage:  "projects list",
-		ShortHelp:   "list projects",
+		ShortUsage:  "project list",
+		ShortHelp:   "list project",
 		FlagSet:     flagSet,
 		Subcommands: []*ffcli.Command{},
 		Exec: func(ctx context.Context, args []string) error {
-			return ProjectsList(ctx, &cfg)
+			return ProjectList(ctx, logger, &cfg)
 		},
 	}
 }

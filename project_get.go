@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
@@ -14,7 +15,7 @@ type GetConfig struct {
 	Capital bool
 }
 
-func ProjectsGet(ctx context.Context, rcfg *GetConfig, args ...string) error {
+func ProjectGet(ctx context.Context, logger *log.Logger, rcfg *GetConfig, args ...string) error {
 	ps := make([]*Project, len(args))
 	for i, name := range args {
 		var err error
@@ -35,7 +36,7 @@ func ProjectsGet(ctx context.Context, rcfg *GetConfig, args ...string) error {
 	return nil
 }
 
-func getCommand(rcfg *RootConfig) *ffcli.Command {
+func getCommand(logger *log.Logger, rcfg *RootConfig) *ffcli.Command {
 	var cfg GetConfig
 	cfg.RootConfig = rcfg
 
@@ -43,12 +44,12 @@ func getCommand(rcfg *RootConfig) *ffcli.Command {
 
 	return &ffcli.Command{
 		Name:        "get",
-		ShortUsage:  "projects get <name>",
-		ShortHelp:   "get projects",
+		ShortUsage:  "project get <name>",
+		ShortHelp:   "get project",
 		FlagSet:     flagSet,
 		Subcommands: []*ffcli.Command{},
 		Exec: func(ctx context.Context, args []string) error {
-			return ProjectsGet(ctx, &cfg, args...)
+			return ProjectGet(ctx, logger, &cfg, args...)
 		},
 	}
 }

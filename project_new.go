@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
@@ -15,12 +16,12 @@ type NewConfig struct {
 	Capital bool
 }
 
-func ProjectsNew(ctx context.Context, rcfg *NewConfig, args ...string) error {
+func ProjectNew(ctx context.Context, logger *log.Logger, rcfg *NewConfig, args ...string) error {
 	fmt.Println("new folder", strings.Join(args, " "))
 	return nil
 }
 
-func newCommand(rcfg *RootConfig) *ffcli.Command {
+func newCommand(logger *log.Logger, rcfg *RootConfig) *ffcli.Command {
 	var cfg NewConfig
 	cfg.RootConfig = rcfg
 
@@ -29,12 +30,12 @@ func newCommand(rcfg *RootConfig) *ffcli.Command {
 
 	return &ffcli.Command{
 		Name:        "new",
-		ShortUsage:  "projects new <name>",
-		ShortHelp:   "new projects",
+		ShortUsage:  "project new <name>",
+		ShortHelp:   "new project",
 		FlagSet:     flagSet,
 		Subcommands: []*ffcli.Command{},
 		Exec: func(ctx context.Context, args []string) error {
-			return ProjectsNew(ctx, &cfg, args...)
+			return ProjectNew(ctx, logger, &cfg, args...)
 		},
 	}
 }

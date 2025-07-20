@@ -6,12 +6,12 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"strings"
 	"text/template"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"go.uber.org/zap"
 )
 
 //go:embed template
@@ -33,7 +33,7 @@ func (f templates) PrintAvailable() {
 	}
 }
 
-func parseInitFiles() templates {
+func parseInitFiles(logger *log.Logger) templates {
 	initf := make(templates)
 
 	err := fs.WalkDir(templateContent, "template", func(path string, entry fs.DirEntry, err error) error {
@@ -46,7 +46,7 @@ func parseInitFiles() templates {
 		}
 
 		if strings.HasSuffix(entry.Name(), ".init") {
-			logger.Debug("parsing embed file", zap.String("path", path))
+			logger.Printf("parsing embed file: %s", path)
 
 			pt, err := template.ParseFS(templateContent, path, "template/*.init")
 			if err != nil {
@@ -67,8 +67,8 @@ func parseInitFiles() templates {
 	return initf
 }
 
-func ProjectsInit(ctx context.Context, rcfg *InitConfig, args ...string) error {
-	initf := parseInitFiles()
+func ProjectInit(ctx context.Context, logger *log.Logger, rcfg *InitConfig, args ...string) error {
+	initf := parseInitFiles(logger)
 	if len(args) != 1 {
 		initf.PrintAvailable()
 		return nil
@@ -87,14 +87,13 @@ func ProjectsInit(ctx context.Context, rcfg *InitConfig, args ...string) error {
 	}
 
 	data := map[string]string{
-		"Name": "toto",
 		"Exec": ex,
 	}
 
 	return tpt.Execute(os.Stdout, data)
 }
 
-func initCommand(rcfg *RootConfig) *ffcli.Command {
+func initCommand(logger *log.Logger, rcfg *RootConfig) *ffcli.Command {
 	var cfg InitConfig
 	cfg.RootConfig = rcfg
 
@@ -103,12 +102,12 @@ func initCommand(rcfg *RootConfig) *ffcli.Command {
 
 	return &ffcli.Command{
 		Name:        "init",
-		ShortUsage:  "projects init <name>",
-		ShortHelp:   "init projects",
+		ShortUsage:  "project init <name>",
+		ShortHelp:   "init project",
 		FlagSet:     flagSet,
 		Subcommands: []*ffcli.Command{},
 		Exec: func(ctx context.Context, args []string) error {
-			return ProjectsInit(ctx, &cfg, args...)
+			return ProjectInit(ctx, logger, &cfg, args...)
 		},
 	}
 }

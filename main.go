@@ -2,19 +2,20 @@ package main
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
+	"io"
+	"log"
 	"os"
 	"os/user"
 	"path/filepath"
 	"strings"
 
-	"github.com/oklog/run"
 	"github.com/peterbourgon/ff/v3"
 	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/peterbourgon/ff/v3/fftoml"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 type RootConfig struct {
@@ -28,17 +29,8 @@ type RootConfig struct {
 
 var homedir string
 
-func init() {
-	u, err := user.Current()
-	if err != nil {
-		panic(err)
-	}
-	homedir = u.HomeDir
-}
-
 // flags
 var (
-	logger      *zap.Logger
 	rootFlagSet = flag.NewFlagSet("project", flag.ExitOnError)
 )
 
@@ -72,16 +64,23 @@ func parseRootConfig(args []string) (*RootConfig, error) {
 }
 
 func main() {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
 	args := os.Args[1:]
+
+	logWriter := io.Discard
 
 	rcfg, err := parseRootConfig(args)
 	if err != nil {
-		panic(err)
+		fmt.Fprintf(os.Stderr, "unable to parse config: %s", err)
+		os.Exit(1)
 	}
 
-	// init logger
-	logger = initLogger(rcfg.Debug)
-	defer logger.Sync()
+	if rcfg.Debug {
+		logWriter = os.Stderr
+	}
+	logger := log.New(logWriter, "D: ", log.Lshortfile)
 
 	root := &ffcli.Command{
 		Name:    "project [flags] <subcommand>",
@@ -90,24 +89,12 @@ func main() {
 			return flag.ErrHelp
 		},
 		Subcommands: []*ffcli.Command{
-			initCommand(rcfg),
-			listCommand(rcfg),
-			newCommand(rcfg),
-			getCommand(rcfg),
-			queryCommand(rcfg),
+			initCommand(logger, rcfg),
+			listCommand(logger, rcfg),
+			newCommand(logger, rcfg),
+			getCommand(logger, rcfg),
+			queryCommand(logger, rcfg),
 		},
-	}
-
-	// create process context
-	processCtx, processCancel := context.WithCancel(context.Background())
-	var process run.Group
-	{
-		// add root command to process
-		process.Add(func() error {
-			return root.ParseAndRun(processCtx, args)
-		}, func(error) {
-			processCancel()
-		})
 	}
 
 	if strings.HasPrefix(rcfg.RootDir, "~") {
@@ -126,13 +113,11 @@ func main() {
 		}
 	}
 
-	// start process
-	switch err := process.Run(); err {
-	case flag.ErrHelp, nil: // ok
-	case context.Canceled, context.DeadlineExceeded:
-		logger.Error("interrupted", zap.Error(err))
-	default:
-		logger.Fatal(err.Error())
+	if err := root.ParseAndRun(ctx, args); err != nil {
+		if !errors.Is(err, flag.ErrHelp) {
+			fmt.Fprintf(os.Stderr, "error: %s\n", err.Error())
+		}
+		os.Exit(1)
 	}
 }
 
@@ -144,22 +129,10 @@ func expandPath(path string) string {
 	return path
 }
 
-func initLogger(verbose bool) *zap.Logger {
-	var level zapcore.Level
-	if verbose {
-		level = zapcore.DebugLevel
-	} else {
-		level = zapcore.InfoLevel
+func init() {
+	u, err := user.Current()
+	if err != nil {
+		panic(err)
 	}
-
-	encodeConfig := zap.NewDevelopmentEncoderConfig()
-	encodeConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	encodeConfig.EncodeTime = nil
-	consoleEncoder := zapcore.NewConsoleEncoder(encodeConfig)
-	consoleDebugging := zapcore.Lock(os.Stdout)
-	core := zapcore.NewCore(consoleEncoder, consoleDebugging, level)
-	logger := zap.New(core)
-
-	logger.Debug("logger initialised")
-	return logger
+	homedir = u.HomeDir
 }

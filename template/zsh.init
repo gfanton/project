@@ -1,46 +1,91 @@
+# compdef p
 # mostly from: https://github.com/ajeetdsouza/zoxide/blob/main/templates/zsh.txt
 
-function __projects_pwd() {
+__project_p_prefix='p#'
+
+function __project_pwd() {
     \builtin pwd -L
 }
 
-function __projects_cd() {
+function __project_cd() {
     \builtin cd -- "$@" && echo "switched to '$@'"
 }
 
-function __projects_p() {
+function __project_p() {
     # shellcheck disable=SC2199
     if [[ "$#" -eq 0 ]]; then
-        __projects_cd ~
+        __project_cd ~
     elif [[ "$#" -eq 1 ]] && [[ "$1" = '-' ]]; then
         echo "step 1"
         if [[ -n "${OLDPWD}" ]]; then
             echo "step 1.1"
-            __projects_cd "${OLDPWD}"
+            __project_cd "${OLDPWD}"
         else
             echo "step 1.2"
             # shellcheck disable=SC2016
-            \builtin printf 'projects: $OLDPWD is not set'
+            \builtin printf 'project: $OLDPWD is not set'
             return 1
         fi
     elif [[ "$#" -eq 1 ]] && [[ -d "$1" ]]; then
-        __projects_cd "$1"
-    # elif [[ "$@[-1]" == "${__projects_z_prefix}"* ]]; then
+        __project_cd "$1"
+    # elif [[ "$@[-1]" == "${__project_z_prefix}"* ]]; then
     #     # shellcheck disable=SC2124
     #     \builtin local result="${@[-1]}"
-    #     __projects_cd "{{ "${result:${#__projects_z_prefix}}" }}"
+    #     __project_cd "{{ "${result:${#__project_z_prefix}}" }}"
     else
         \builtin local result
         # shellcheck disable=SC2312
-        result="$(\command {{.Exec}} --debug=false query --exclude "$(__projects_pwd)" -- "$@")" &&
-            __projects_cd "${result}"
+        result="$(\command {{.Exec}} --debug=false query --exclude "$(__project_pwd)" -- "$@")" &&
+            __project_cd "${result}"
     fi
 }
 
+# Completions.
+# Check if the Zsh Line Editor (zle) is available. 
+# If it's not, none of the rest of the code within this if statement block will execute.
+if [[ -o zle ]]; then
+    # Define a function called __project_p_complete that implements the custom completion behavior for the project command.
+    function __project_p_complete() {
+        \builtin local -a reply
+        \builtin local result
+
+        echo "completion start" >> /tmp/completion
+        # Check if the cursor is at the end of the line. 
+        # If not, the function returns immediately.
+        # ${#words[@]} gives the count of words in the command line 
+        # and ${CURRENT} contains the index of the word at the cursor position.
+        [[ "{{ "${#words[@]}" }}" -eq "${CURRENT}" ]] || return 0
+
+        # Decide the type of completion based on the word count and the values of the last two words.
+        # If the last word is empty and the second to last word is not some project prefix, 
+        # query project for a list of potential directory matches. 
+        # If a match is found, it's added to the list of completions.
+        input="$(\command {{.Exec}} -debug=false query -all -exclude=\"$(__project_pwd)\" ${words[2,-1]})"
+        if [[ ! -z "${input// }" ]]; then
+            reply=("${(@f)input}")
+            # shellcheck disable=SC2296
+            compadd -a reply
+            # compadd "$@" -a reply
+        fi
+        
+        # Send a Device Status Report (DSR) code to the terminal. 
+        # This is typically used for checking if the terminal is still responding.
+        \builtin printf '\e[5n'
+
+        return 0
+    }
+
+    # Bind the reset-prompt widget to the '\e[0n' key sequence. 
+    # This sequence corresponds to the terminal's response to the DSR code mentioned above.
+    \builtin bindkey '\e[0n' 'reset-prompt'
+
+    # Check if compdef function is available. 
+    # If it is, register the __project_p_complete function as the completion function for the __project_p command.
+    [[ "${+functions[compdef]}" -ne 0 ]] && \compdef __project_p_complete __project_p
+fi
+
 \builtin unalias p &>/dev/null || \builtin true
-function p() {
-    __projects_p "$@"
-}
+\builtin alias p=__project_p
 
 # To initialize project, add this to your configuration (usually ~/.zshrc):
 #
