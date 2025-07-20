@@ -8,7 +8,7 @@ setup() {
   export PROJECT_CONFIG="$TEST_HOME/.projectrc"
   
   # Create project binary path
-  export PROJECT_BIN="$PWD/build/project"
+  export PROJECT_BIN="$PWD/build/proj"
   
   # Create test project structure
   mkdir -p "$PROJECT_ROOT/user1/project1"
@@ -42,8 +42,8 @@ teardown() {
   rm -rf "$TEST_HOME"
 }
 
-# Test that project init generates valid zsh code
-@test "project init generates valid zsh code" {
+# Test that proj init generates valid zsh code
+@test "proj init generates valid zsh code" {
   run "$PROJECT_BIN" init zsh
   [ "$status" -eq 0 ]
   [ -n "$output" ]
@@ -55,7 +55,7 @@ teardown() {
 }
 
 # Test that zsh can source the init script
-@test "zsh can source project init script" {
+@test "zsh can source proj init script" {
   # Generate init script
   "$PROJECT_BIN" init zsh > "$TEST_HOME/project.zsh"
   
@@ -66,7 +66,7 @@ teardown() {
 }
 
 # Test basic completion functionality
-@test "project query returns expected results" {
+@test "proj query returns expected results" {
   cd "$TEST_HOME"
   run "$PROJECT_BIN" query "project1"
   [ "$status" -eq 0 ]
@@ -74,7 +74,7 @@ teardown() {
 }
 
 # Test fuzzy search
-@test "project query supports fuzzy search" {
+@test "proj query supports fuzzy search" {
   cd "$TEST_HOME"
   run "$PROJECT_BIN" query "proj3"
   [ "$status" -eq 0 ]
@@ -82,7 +82,7 @@ teardown() {
 }
 
 # Test exclude current directory
-@test "project query excludes current directory" {
+@test "proj query excludes current directory" {
   cd "$PROJECT_ROOT/user1/project1"
   run "$PROJECT_BIN" query --exclude "$PWD" --limit 10 ""
   [ "$status" -eq 0 ]
@@ -93,7 +93,7 @@ teardown() {
 }
 
 # Test limit functionality
-@test "project query respects limit" {
+@test "proj query respects limit" {
   cd "$TEST_HOME"
   run "$PROJECT_BIN" query --limit 2 "project"
   [ "$status" -eq 0 ]

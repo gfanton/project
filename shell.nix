@@ -31,7 +31,7 @@ pkgs.mkShell {
     
     # Set up test environment variables
     export PROJECT_TEST_DIR="$PWD/test-env"
-    export PROJECT_TEST_BIN="$PWD/build/project"
+    export PROJECT_TEST_BIN="$PWD/build/proj"
     
     # Ensure we have a clean test binary
     make build

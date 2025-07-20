@@ -107,4 +107,4 @@ fi
 
 # To initialize project, add this to your configuration (usually ~/.zshrc):
 #
-# eval "$(project init zsh)"
+# eval "$(proj init zsh)"

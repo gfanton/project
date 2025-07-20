@@ -28,8 +28,8 @@
             "-X main.version=${version}"
           ];
 
-          # Build from cmd/project
-          subPackages = [ "cmd/project" ];
+          # Build from cmd/proj
+          subPackages = [ "cmd/proj" ];
 
           # Test dependencies for integration tests
           nativeBuildInputs = with pkgs; [
@@ -70,7 +70,7 @@
             homepage = "https://github.com/gfanton/project";
             license = licenses.mit;
             maintainers = [ "gfanton" ];
-            mainProgram = "project";
+            mainProgram = "proj";
           };
         };
 
@@ -106,7 +106,7 @@
             
             # Set up test environment variables
             export PROJECT_TEST_DIR="$PWD/test-env"
-            export PROJECT_TEST_BIN="$PWD/build/project"
+            export PROJECT_TEST_BIN="$PWD/build/proj"
             
             echo ""
             echo "Available commands:"
@@ -123,7 +123,7 @@
         # Apps for easy running
         apps.default = {
           type = "app";
-          program = "${self.packages.${system}.project}/bin/project";
+          program = "${self.packages.${system}.project}/bin/proj";
         };
 
         # Checks for CI

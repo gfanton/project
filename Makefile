@@ -1,9 +1,9 @@
 .PHONY: build install test lint clean tidy test-coverage test-coverage-html bench test-integration test-nix test-shell
 
 # Variables
-APP_NAME := project
+APP_NAME := proj
 BUILD_DIR := ./build
-CMD_DIR := ./cmd/project
+CMD_DIR := ./cmd/proj
 GO_FILES := $(shell find . -type f -name '*.go')
 TEMPLATE_FILES := $(shell find pkg/template -type f -name '*.init' 2>/dev/null || true)
 COVERAGE_OUT := coverage.out

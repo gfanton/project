@@ -30,41 +30,41 @@ After building, add the binary to your PATH or use `make install` to install to 
 ### Initialize shell integration
 Add this to your `~/.zshrc`:
 ```bash
-eval "$(project init zsh)"
+eval "$(proj init zsh)"
 ```
 
 This enables the `p` command for quick project navigation.
 
 ### Commands
 
-#### `project new <name>`
+#### `proj new <name>`
 Create a new project directory structure.
 ```bash
-project new myproject          # Creates ~/code/$USER/myproject
-project new username/myproject # Creates ~/code/username/myproject
+proj new myproject          # Creates ~/code/$USER/myproject
+proj new username/myproject # Creates ~/code/username/myproject
 ```
 
-#### `project get <repo>`
+#### `proj get <repo>`
 Clone a repository from GitHub into the appropriate directory structure.
 ```bash
-project get username/repo      # Clones to ~/code/username/repo
-project get myrepo            # Clones to ~/code/$USER/myrepo (if default user set)
+proj get username/repo      # Clones to ~/code/username/repo
+proj get myrepo            # Clones to ~/code/$USER/myrepo (if default user set)
 ```
 
-#### `project list [--all]`
+#### `proj list [--all]`
 List all projects in your root directory.
 ```bash
-project list       # Shows only valid Git repositories
-project list --all # Shows all directories (including non-Git)
+proj list       # Shows only valid Git repositories
+proj list --all # Shows all directories (including non-Git)
 ```
 
-#### `project query <search> [options]`
+#### `proj query <search> [options]`
 Search for projects using fuzzy matching.
 ```bash
-project query myproj                    # Find best match for "myproj"
-project query --limit 5 myproj          # Show up to 5 matches
-project query --exclude $(pwd) myproj   # Exclude current directory
-project query --abspath myproj          # Return absolute paths
+proj query myproj                    # Find best match for "myproj"
+proj query --limit 5 myproj          # Show up to 5 matches
+proj query --exclude $(pwd) myproj   # Exclude current directory
+proj query --abspath myproj          # Return absolute paths
 ```
 
 #### `p <search>` (shell integration)
@@ -93,7 +93,7 @@ debug = false            # Enable debug logging
 
 ### Command line flags
 ```bash
-project --root ~/my-projects --user myname --debug command
+proj --root ~/my-projects --user myname --debug command
 ```
 
 ## Directory Structure
@@ -133,7 +133,7 @@ This mirrors GitHub's organization structure and makes it easy to find and manag
 
 ### Build and Development
 ```bash
-make build              # Build to ./build/project
+make build              # Build to ./build/proj
 make install            # Install to $GOBIN
 make test               # Run all tests
 make test-coverage      # Run tests with coverage report

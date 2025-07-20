@@ -68,8 +68,8 @@ func buildProjectBinary(t *testing.T) string {
 	projectRoot := filepath.Join(wd, "..", "..")
 	
 	// Build binary
-	binaryPath := filepath.Join(projectRoot, "build", "project")
-	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/project")
+	binaryPath := filepath.Join(projectRoot, "build", "proj")
+	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/proj")
 	cmd.Dir = projectRoot
 	
 	if err := cmd.Run(); err != nil {

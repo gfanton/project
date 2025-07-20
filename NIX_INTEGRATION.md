@@ -14,7 +14,7 @@ nix profile install github:gfanton/project
 nix run github:gfanton/project -- --help
 
 # Enable shell integration
-eval "$(project init zsh)"
+eval "$(proj init zsh)"
 ```
 
 ### Option 2: Integration with Home Manager
@@ -39,7 +39,7 @@ Add the project as an input to your `flake.nix`:
           
           # Enable shell integration automatically
           programs.zsh.initExtra = ''
-            eval "$(${project.packages.x86_64-linux.default}/bin/project init zsh)"
+            eval "$(${project.packages.x86_64-linux.default}/bin/proj init zsh)"
           '';
         }
       ];
@@ -96,7 +96,7 @@ Here's a complete example of integrating project into your home-manager setup:
             enable = true;
             initExtra = ''
               # Project shell integration - provides 'p' command
-              eval "$(${inputs.project.packages.aarch64-darwin.default}/bin/project init zsh)"
+              eval "$(${inputs.project.packages.aarch64-darwin.default}/bin/proj init zsh)"
             '';
           };
           
@@ -164,7 +164,7 @@ make test-nix           # Run all tests in Nix environment
 
 The Nix package includes:
 
-- **Binary**: `/bin/project` - The main executable
+- **Binary**: `/bin/proj` - The main executable
 - **Shell completion**: `/share/zsh/site-functions/_project` - Zsh completion
 - **Examples**: `/share/doc/project/examples/` - Test scripts and configurations
 
@@ -172,7 +172,7 @@ The Nix package includes:
 
 ### Common Issues
 
-1. **"project: command not found"**
+1. **"proj: command not found"**
    - Make sure the package is in your `home.packages` or system packages
    - Restart your shell or run `hash -r`
 
@@ -181,9 +181,9 @@ The Nix package includes:
    - Check that the completion file exists in your fpath
 
 3. **No projects found**
-   - Create your first project: `project new myproject`
-   - Or clone one: `project get username/repo`
-   - Check your config: `project list --all`
+   - Create your first project: `proj new myproject`
+   - Or clone one: `proj get username/repo`
+   - Check your config: `proj list --all`
 
 ### Debug Mode
 
@@ -191,7 +191,7 @@ Enable debug logging:
 
 ```bash
 export PROJECT_DEBUG=true
-project list
+proj list
 ```
 
 Or set in `~/.projectrc`:
@@ -216,13 +216,13 @@ nix flake update
 
 ```bash
 # Create a new project
-project new awesome-tool
+proj new awesome-tool
 
 # Clone from GitHub
-project get microsoft/vscode
+proj get microsoft/vscode
 
 # List all projects
-project list
+proj list
 
 # Navigate with fuzzy search
 p awesome        # Navigates to best match
@@ -230,7 +230,7 @@ p micro/vs<TAB>  # Tab completion
 p -              # Go back to previous directory
 
 # Search projects
-project query tool    # Find projects matching "tool"
+proj query tool    # Find projects matching "tool"
 ```
 
 ## 🎯 Advanced Configuration

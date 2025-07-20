@@ -2,12 +2,12 @@
 
 # Simple interactive test for project zsh integration
 set timeout 10
-set project_bin "$env(PWD)/build/project"
+set project_bin "$env(PWD)/build/proj"
 
 puts "Testing project zsh integration..."
 
-# Test that project init generates valid zsh script
-puts "✓ Testing project init zsh generation..."
+# Test that proj init generates valid zsh script
+puts "✓ Testing proj init zsh generation..."
 if {[catch {exec $project_bin init zsh} result]} {
     puts "✗ Failed to generate zsh init script: $result"
     exit 1
@@ -23,7 +23,7 @@ if {![string match "*alias p=__project_p*" $result]} {
     exit 1
 }
 
-puts "✓ Project init zsh generates valid script"
+puts "✓ Proj init zsh generates valid script"
 puts "✓ Script contains __project_p function"
 puts "✓ Script contains p alias"
 

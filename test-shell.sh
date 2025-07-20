@@ -27,7 +27,7 @@ user = "testuser"
 EOF
 
 # Generate project init script
-./build/project init zsh > "$TEST_DIR/project.zsh"
+./build/proj init zsh > "$TEST_DIR/project.zsh"
 
 # Create zshrc
 cat > "$TEST_DIR/.zshrc" <<EOF
