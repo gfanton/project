@@ -30,7 +30,7 @@ function __project_p() {
     else
         \builtin local result
         # shellcheck disable=SC2312
-        result="$(\command {{.Exec}} query --abspath --exclude "$(__project_pwd)" -- "$@")" &&
+        result="$(\command {{.Exec}} query --abspath --exclude "$(__project_pwd)" -- "$@" | head -1)" &&
             __project_cd "${result}"
     fi
 }
