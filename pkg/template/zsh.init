@@ -41,46 +41,23 @@ function __project_p() {
 if [[ -o zle ]]; then
     # Define a function called __project_p_complete that implements the custom completion behavior for the project command.
     function __project_p_complete() {
-        \builtin local -a reply
-        \builtin local -a descriptions
-        \builtin local result
-        \builtin local line
-
-        # Check if the cursor is at the end of the line. 
-        # If not, the function returns immediately.
-        # ${#words[@]} gives the count of words in the command line 
-        # and ${CURRENT} contains the index of the word at the cursor position.
+        # Don't complete if cursor not at end of line
         [[ "{{ "${#words[@]}" }}" -eq "${CURRENT}" ]] || return 0
 
-        # Query project for up to 20 potential directory matches
-        # Using --limit 20 to show multiple options for cycling
-        input="$(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- ${words[2,-1]} 2>/dev/null)"
+        \builtin local typed="${words[2,-1]}"
         
-        if [[ ! -z "${input// }" ]]; then
-            # Split input into array
-            reply=("${(@f)input}")
-            
-            # Create descriptions for each match to show more context
-            descriptions=()
-            for project in "${reply[@]}"; do
-                # Add description showing the full path context
-                if [[ "$project" == */* ]]; then
-                    descriptions+=("$project:project")
-                else
-                    descriptions+=("$project:project")
-                fi
-            done
-            
-            # Use compadd with descriptions and enable cycling through options
-            # -d: descriptions array
-            # -l: enable list always (show multiple options)
-            # -o: enable completion cycling
-            # -J: completion group name
-            compadd -d descriptions -l -o -J projects -a reply
+        # Query project for potential directory matches
+        \builtin local IFS=$'\n'
+        \builtin local -a matches
+        matches=($(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- ${typed} 2>/dev/null))
+        
+        if [[ ${#matches[@]} -gt 0 ]]; then
+            # Add matches as completions
+            # The key is to let zsh handle the replacement properly
+            _wanted projects expl 'project' compadd -a matches
         fi
         
-        # Send a Device Status Report (DSR) code to the terminal. 
-        # This is typically used for checking if the terminal is still responding.
+        # Send a Device Status Report (DSR) code to the terminal
         \builtin printf '\e[5n'
 
         return 0
@@ -90,12 +67,13 @@ if [[ -o zle ]]; then
     # This sequence corresponds to the terminal's response to the DSR code mentioned above.
     \builtin bindkey '\e[0n' 'reset-prompt'
 
-    # Configure completion behavior for better cycling experience
-    # Enable menu selection for project completions
-    zstyle ':completion:*:*:__project_p:*' menu select
-    zstyle ':completion:*:*:__project_p:*' list-colors ''
-    zstyle ':completion:*:*:__project_p:*' group-name projects
-    zstyle ':completion:*:projects:*' format '%B%F{blue}Projects:%f%b'
+    # Configure completion behavior for menu selection
+    # Enable menu selection for cycling through options
+    zstyle ':completion:*:*:__project_p:*:projects' menu select
+    # Preserve the order from our query command (don't sort)
+    zstyle ':completion:*:*:__project_p:*:projects' sort false
+    # Always show the list
+    zstyle ':completion:*:*:__project_p:*:projects' force-list always
     
     # Check if compdef function is available. 
     # If it is, register the __project_p_complete function as the completion function for the __project_p command.

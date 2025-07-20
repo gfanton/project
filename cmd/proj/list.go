@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"strings"
 
 	"github.com/gfanton/project/internal/config"
 	"github.com/gfanton/project/internal/project"
@@ -24,20 +25,31 @@ func newListCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 
 	return &ffcli.Command{
 		Name:       "list",
-		ShortUsage: "project list [flags]",
+		ShortUsage: "project list [prefix] [flags]",
 		ShortHelp:  "List all projects",
 		LongHelp: `List all projects in the configured root directory.
+
+Optionally provide a prefix to filter projects by name.
 
 By default, only Git repositories are shown. Use --all to show all directories.`,
 		FlagSet: fs,
 		Exec: func(ctx context.Context, args []string) error {
-			return runList(ctx, logger, cfg, listCfg)
+			var prefix string
+			if len(args) > 0 {
+				prefix = args[0]
+			}
+			return runList(ctx, logger, cfg, listCfg, prefix)
 		},
 	}
 }
 
-func runList(ctx context.Context, logger *slog.Logger, cfg *config.Config, listCfg listConfig) error {
+func runList(ctx context.Context, logger *slog.Logger, cfg *config.Config, listCfg listConfig, prefix string) error {
 	return project.Walk(cfg.RootDir, func(d fs.DirEntry, p *project.Project) error {
+		// Skip if prefix is provided and project doesn't match
+		if prefix != "" && !hasPrefix(p.String(), prefix) {
+			return nil
+		}
+
 		status := p.GetGitStatus()
 
 		// Skip non-Git directories unless --all is specified
@@ -48,4 +60,8 @@ func runList(ctx context.Context, logger *slog.Logger, cfg *config.Config, listC
 		fmt.Printf("%s - [%s]\n", p.String(), status)
 		return nil
 	})
+}
+
+func hasPrefix(projectName, prefix string) bool {
+	return strings.HasPrefix(strings.ToLower(projectName), strings.ToLower(prefix))
 }

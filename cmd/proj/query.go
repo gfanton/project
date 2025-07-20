@@ -43,7 +43,7 @@ func newQueryCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 	fs.Var(excludeValue{&queryCfg.exclude}, "exclude", "exclude project path (can be used multiple times)")
 	fs.BoolVar(&queryCfg.absPath, "abspath", false, "return absolute paths instead of project names")
 	fs.StringVar(&queryCfg.separator, "sep", "\n", "separator between results")
-	fs.IntVar(&queryCfg.limit, "limit", 0, "limit number of results (0 = no limit)")
+	fs.IntVar(&queryCfg.limit, "limit", 20, "limit number of results (0 = no limit)")
 
 	return &ffcli.Command{
 		Name:       "query",
@@ -64,11 +64,6 @@ Examples:
 
 func runQuery(ctx context.Context, logger *slog.Logger, cfg *config.Config, queryCfg queryConfig, args []string) error {
 	searchQuery := strings.Join(args, " ")
-
-	// Default limit to 1 if we have a search query and no explicit limit or all flag
-	if searchQuery != "" && queryCfg.limit == 0 {
-		queryCfg.limit = 1
-	}
 
 	queryService := query.NewService(logger, cfg.RootDir)
 

@@ -77,10 +77,37 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 		distance := 1
 		projectName := p.String()
 
-		if opts.Query != "" {
-			if distance = fuzzy.RankMatchFold(opts.Query, projectName); distance < 0 {
-				return nil // No match
-			}
+		if opts.Query == "" {
+			return nil
+		}
+
+		if distance = fuzzy.RankMatchFold(opts.Query, projectName); distance < 0 {
+			return nil // No match
+		}
+
+		// Prioritize exact substring matches
+		queryLower := strings.ToLower(opts.Query)
+		projectLower := strings.ToLower(projectName)
+
+		// Split project name into parts
+		parts := strings.Split(projectName, "/")
+		projectNamePart := ""
+		orgPart := ""
+		if len(parts) == 2 {
+			orgPart = strings.ToLower(parts[0])
+			projectNamePart = strings.ToLower(parts[1])
+		}
+
+		// Exact match gets highest priority (distance 0)
+		if projectLower == queryLower {
+			distance = 0
+		} else if projectNamePart == queryLower || orgPart == queryLower {
+			// Exact match on project name or org gets very high priority
+			distance = -1000
+		} else if strings.Contains(projectLower, queryLower) {
+			// Substring match gets higher priority than fuzzy match
+			// Use negative distance to ensure it ranks higher
+			distance = -distance
 		}
 
 		results = append(results, &Result{
@@ -100,8 +127,16 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 		return nil, fmt.Errorf("failed to walk projects: %w", err)
 	}
 
-	// Sort by distance (lower is better)
+	// Sort by distance (lower is better, negative distances rank highest)
 	sort.Slice(results, func(i, j int) bool {
+		// Negative distances (substring matches) should come first
+		if results[i].Distance < 0 && results[j].Distance >= 0 {
+			return true
+		}
+		if results[i].Distance >= 0 && results[j].Distance < 0 {
+			return false
+		}
+		// For both negative or both positive, sort normally
 		return results[i].Distance < results[j].Distance
 	})
 
