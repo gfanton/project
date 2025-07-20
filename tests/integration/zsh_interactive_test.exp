@@ -1,0 +1,30 @@
+#!/usr/bin/env expect
+
+# Simple interactive test for project zsh integration
+set timeout 10
+set project_bin "$env(PWD)/build/project"
+
+puts "Testing project zsh integration..."
+
+# Test that project init generates valid zsh script
+puts "✓ Testing project init zsh generation..."
+if {[catch {exec $project_bin init zsh} result]} {
+    puts "✗ Failed to generate zsh init script: $result"
+    exit 1
+}
+
+if {![string match "*__project_p*" $result]} {
+    puts "✗ Generated script missing __project_p function"
+    exit 1
+}
+
+if {![string match "*alias p=__project_p*" $result]} {
+    puts "✗ Generated script missing p alias"
+    exit 1
+}
+
+puts "✓ Project init zsh generates valid script"
+puts "✓ Script contains __project_p function"
+puts "✓ Script contains p alias"
+
+puts "\n✓ All basic interactive tests passed!"

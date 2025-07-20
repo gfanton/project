@@ -1,8 +1,6 @@
 # compdef p
 # mostly from: https://github.com/ajeetdsouza/zoxide/blob/main/templates/zsh.txt
 
-__project_p_prefix='p#'
-
 function __project_pwd() {
     \builtin pwd -L
 }
@@ -16,12 +14,9 @@ function __project_p() {
     if [[ "$#" -eq 0 ]]; then
         __project_cd ~
     elif [[ "$#" -eq 1 ]] && [[ "$1" = '-' ]]; then
-        echo "step 1"
         if [[ -n "${OLDPWD}" ]]; then
-            echo "step 1.1"
             __project_cd "${OLDPWD}"
         else
-            echo "step 1.2"
             # shellcheck disable=SC2016
             \builtin printf 'project: $OLDPWD is not set'
             return 1
@@ -35,7 +30,7 @@ function __project_p() {
     else
         \builtin local result
         # shellcheck disable=SC2312
-        result="$(\command {{.Exec}} --debug=false query --exclude "$(__project_pwd)" -- "$@")" &&
+        result="$(\command {{.Exec}} query --abspath --exclude "$(__project_pwd)" -- "$@")" &&
             __project_cd "${result}"
     fi
 }
@@ -49,7 +44,6 @@ if [[ -o zle ]]; then
         \builtin local -a reply
         \builtin local result
 
-        echo "completion start" >> /tmp/completion
         # Check if the cursor is at the end of the line. 
         # If not, the function returns immediately.
         # ${#words[@]} gives the count of words in the command line 
@@ -60,7 +54,7 @@ if [[ -o zle ]]; then
         # If the last word is empty and the second to last word is not some project prefix, 
         # query project for a list of potential directory matches. 
         # If a match is found, it's added to the list of completions.
-        input="$(\command {{.Exec}} -debug=false query -all -exclude=\"$(__project_pwd)\" ${words[2,-1]})"
+        input="$(\command {{.Exec}} query --exclude "$(__project_pwd)" -- ${words[2,-1]})"
         if [[ ! -z "${input// }" ]]; then
             reply=("${(@f)input}")
             # shellcheck disable=SC2296

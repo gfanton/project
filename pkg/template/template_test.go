@@ -22,7 +22,6 @@ func TestRender(t *testing.T) {
 			expectError: false,
 			expectContains: []string{
 				"# compdef p",
-				"__project_p_prefix",
 				"__project_pwd",
 				"__project_cd",
 				"__project_p",

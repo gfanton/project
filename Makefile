@@ -1,4 +1,4 @@
-.PHONY: build install test lint clean tidy test-coverage test-coverage-html bench
+.PHONY: build install test lint clean tidy test-coverage test-coverage-html bench test-integration test-nix
 
 # Variables
 APP_NAME := project
@@ -57,3 +57,29 @@ tidy:
 # Development target - build and run
 dev: build
 	$(BUILD_DIR)/$(APP_NAME)
+
+# Run integration tests (requires bats and expect)
+test-integration: build
+	@echo "Running integration tests..."
+	@./tests/run_tests.sh
+
+# Run all tests in Nix environment
+test-nix:
+	@if command -v nix-shell >/dev/null 2>&1; then \
+		echo "Running tests in Nix environment..."; \
+		nix-shell --run "make test-integration"; \
+	else \
+		echo "Error: Nix is not installed. Please install Nix first."; \
+		echo "Visit: https://nixos.org/download.html"; \
+		exit 1; \
+	fi
+
+# Enter Nix shell for testing
+shell-nix:
+	@if command -v nix-shell >/dev/null 2>&1; then \
+		nix-shell; \
+	else \
+		echo "Error: Nix is not installed. Please install Nix first."; \
+		echo "Visit: https://nixos.org/download.html"; \
+		exit 1; \
+	fi

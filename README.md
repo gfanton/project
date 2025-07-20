@@ -62,7 +62,7 @@ project list --all # Shows all directories (including non-Git)
 Search for projects using fuzzy matching.
 ```bash
 project query myproj                    # Find best match for "myproj"
-project query --all myproj              # Show all matches ranked by relevance
+project query --limit 5 myproj          # Show up to 5 matches
 project query --exclude $(pwd) myproj   # Exclude current directory
 project query --abspath myproj          # Return absolute paths
 ```
@@ -146,9 +146,36 @@ make dev                # Build and run
 ### Testing
 The project has comprehensive test coverage (80-95%) across all packages:
 - **Unit tests**: All core functionality tested
-- **Integration tests**: Real Git repository operations
+- **Integration tests**: Shell integration and interactive completion testing
 - **Performance benchmarks**: Query operations tested with large datasets
 - **Coverage reporting**: HTML and text coverage reports available
+
+#### Integration Testing with Nix
+For comprehensive shell integration testing, we use Nix to provide a reproducible test environment:
+
+```bash
+# Run integration tests locally (requires BATS and Expect)
+make test-integration
+
+# Run all tests in Nix environment (recommended)
+make test-nix
+
+# Enter Nix shell for interactive testing
+make shell-nix
+```
+
+The integration tests verify:
+- Zsh completion functionality
+- Interactive shell navigation with the `p` command
+- Fuzzy search behavior
+- Directory exclusion in completions
+- Shell initialization and function definitions
+
+#### Test Dependencies
+- **Nix**: For reproducible test environments
+- **BATS**: Bash Automated Testing System for shell function tests
+- **Expect**: For interactive shell testing
+- **Go 1.23+**: For unit tests and benchmarks
 
 ## License
 
