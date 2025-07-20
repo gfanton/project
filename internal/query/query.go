@@ -74,22 +74,16 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 		}
 
 		// Calculate match distance
-		distance := 1
 		projectName := p.String()
 
 		if opts.Query == "" {
 			return nil
 		}
 
-		if distance = fuzzy.RankMatchFold(opts.Query, projectName); distance < 0 {
-			return nil // No match
-		}
-
-		// Prioritize exact substring matches
 		queryLower := strings.ToLower(opts.Query)
 		projectLower := strings.ToLower(projectName)
 
-		// Split project name into parts
+		// Split project name into parts (org/name)
 		parts := strings.Split(projectName, "/")
 		projectNamePart := ""
 		orgPart := ""
@@ -98,16 +92,34 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 			projectNamePart = strings.ToLower(parts[1])
 		}
 
-		// Exact match gets highest priority (distance 0)
+		var distance int
+
+		// Priority ranking (lower distance = higher priority):
+		// 1. Exact full match: "foobar/foo" matches "foobar/foo"
 		if projectLower == queryLower {
 			distance = 0
-		} else if projectNamePart == queryLower || orgPart == queryLower {
-			// Exact match on project name or org gets very high priority
-			distance = -1000
+			// 2. Exact project name match: "foo" matches "foobar/foo"
+		} else if projectNamePart == queryLower {
+			distance = 1
+			// 3. Exact org match: "foobar" matches "foobar/foo"
+		} else if orgPart == queryLower {
+			distance = 2
+			// 4. Full substring match: "foo" in "foobar/foo"
 		} else if strings.Contains(projectLower, queryLower) {
-			// Substring match gets higher priority than fuzzy match
-			// Use negative distance to ensure it ranks higher
-			distance = -distance
+			distance = 10 + len(projectName) - len(opts.Query) // Shorter strings rank higher
+			// 5. Project name substring: "foo" in "foo-by-example"
+		} else if strings.Contains(projectNamePart, queryLower) {
+			distance = 100 + len(projectNamePart) - len(opts.Query)
+			// 6. Org substring: "fool" in "foobar"
+		} else if strings.Contains(orgPart, queryLower) {
+			distance = 200 + len(orgPart) - len(opts.Query)
+			// 7. Fuzzy match as fallback
+		} else {
+			fuzzyDistance := fuzzy.RankMatchFold(opts.Query, projectName)
+			if fuzzyDistance < 0 {
+				return nil // No match
+			}
+			distance = 1000 + fuzzyDistance // Low priority for fuzzy matches
 		}
 
 		results = append(results, &Result{
@@ -127,16 +139,8 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 		return nil, fmt.Errorf("failed to walk projects: %w", err)
 	}
 
-	// Sort by distance (lower is better, negative distances rank highest)
+	// Sort by distance (lower is better)
 	sort.Slice(results, func(i, j int) bool {
-		// Negative distances (substring matches) should come first
-		if results[i].Distance < 0 && results[j].Distance >= 0 {
-			return true
-		}
-		if results[i].Distance >= 0 && results[j].Distance < 0 {
-			return false
-		}
-		// For both negative or both positive, sort normally
 		return results[i].Distance < results[j].Distance
 	})
 
