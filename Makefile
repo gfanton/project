@@ -1,4 +1,4 @@
-.PHONY: build install test lint clean tidy test-coverage test-coverage-html bench test-integration test-nix
+.PHONY: build install test lint clean tidy test-coverage test-coverage-html bench test-integration test-nix test-shell
 
 # Variables
 APP_NAME := project
@@ -26,6 +26,10 @@ install:
 # Run tests
 test:
 	go test -v ./...
+
+# Run shell integration tests (Go-based)
+test-shell:
+	go test -v ./internal/shell/ -run TestShellIntegration
 
 # Run tests with coverage
 test-coverage:

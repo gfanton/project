@@ -116,8 +116,10 @@ This mirrors GitHub's organization structure and makes it easy to find and manag
 ## Shell Integration Features
 
 - **Fast navigation**: Type `p projectname` to jump to any project
-- **Intelligent completion**: Tab completion shows matching projects
+- **Enhanced completion**: Tab completion shows up to 20 matching projects with menu selection
+- **Cycling support**: Use TAB to cycle through multiple completion options
 - **Fuzzy search**: Finds projects even with partial/misspelled names
+- **Visual menu**: Arrow keys to navigate completion menu when multiple matches exist
 - **Exclude current**: Automatically excludes current directory from search results
 - **Previous directory**: Use `p -` to return to previous location
 
@@ -165,8 +167,9 @@ make shell-nix
 ```
 
 The integration tests verify:
-- Zsh completion functionality
+- Enhanced zsh completion with menu selection (up to 20 options)
 - Interactive shell navigation with the `p` command
+- Completion cycling and arrow key navigation
 - Fuzzy search behavior
 - Directory exclusion in completions
 - Shell initialization and function definitions

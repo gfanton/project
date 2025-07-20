@@ -42,7 +42,9 @@ if [[ -o zle ]]; then
     # Define a function called __project_p_complete that implements the custom completion behavior for the project command.
     function __project_p_complete() {
         \builtin local -a reply
+        \builtin local -a descriptions
         \builtin local result
+        \builtin local line
 
         # Check if the cursor is at the end of the line. 
         # If not, the function returns immediately.
@@ -50,16 +52,31 @@ if [[ -o zle ]]; then
         # and ${CURRENT} contains the index of the word at the cursor position.
         [[ "{{ "${#words[@]}" }}" -eq "${CURRENT}" ]] || return 0
 
-        # Decide the type of completion based on the word count and the values of the last two words.
-        # If the last word is empty and the second to last word is not some project prefix, 
-        # query project for a list of potential directory matches. 
-        # If a match is found, it's added to the list of completions.
-        input="$(\command {{.Exec}} query --exclude "$(__project_pwd)" -- ${words[2,-1]})"
+        # Query project for up to 20 potential directory matches
+        # Using --limit 20 to show multiple options for cycling
+        input="$(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- ${words[2,-1]} 2>/dev/null)"
+        
         if [[ ! -z "${input// }" ]]; then
+            # Split input into array
             reply=("${(@f)input}")
-            # shellcheck disable=SC2296
-            compadd -a reply
-            # compadd "$@" -a reply
+            
+            # Create descriptions for each match to show more context
+            descriptions=()
+            for project in "${reply[@]}"; do
+                # Add description showing the full path context
+                if [[ "$project" == */* ]]; then
+                    descriptions+=("$project:project")
+                else
+                    descriptions+=("$project:project")
+                fi
+            done
+            
+            # Use compadd with descriptions and enable cycling through options
+            # -d: descriptions array
+            # -l: enable list always (show multiple options)
+            # -o: enable completion cycling
+            # -J: completion group name
+            compadd -d descriptions -l -o -J projects -a reply
         fi
         
         # Send a Device Status Report (DSR) code to the terminal. 
@@ -73,6 +90,13 @@ if [[ -o zle ]]; then
     # This sequence corresponds to the terminal's response to the DSR code mentioned above.
     \builtin bindkey '\e[0n' 'reset-prompt'
 
+    # Configure completion behavior for better cycling experience
+    # Enable menu selection for project completions
+    zstyle ':completion:*:*:__project_p:*' menu select
+    zstyle ':completion:*:*:__project_p:*' list-colors ''
+    zstyle ':completion:*:*:__project_p:*' group-name projects
+    zstyle ':completion:*:projects:*' format '%B%F{blue}Projects:%f%b'
+    
     # Check if compdef function is available. 
     # If it is, register the __project_p_complete function as the completion function for the __project_p command.
     [[ "${+functions[compdef]}" -ne 0 ]] && \compdef __project_p_complete __project_p
