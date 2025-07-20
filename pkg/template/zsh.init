@@ -39,45 +39,32 @@ function __project_p() {
 # Check if the Zsh Line Editor (zle) is available. 
 # If it's not, none of the rest of the code within this if statement block will execute.
 if [[ -o zle ]]; then
-    # Define a function called __project_p_complete that implements the custom completion behavior for the project command.
+    # Define completion function with menu behavior override
     function __project_p_complete() {
-        # Don't complete if cursor not at end of line
         [[ "{{ "${#words[@]}" }}" -eq "${CURRENT}" ]] || return 0
 
         \builtin local typed="${words[2,-1]}"
-        
-        # Query project for potential directory matches
         \builtin local IFS=$'\n'
         \builtin local -a matches
         matches=($(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- ${typed} 2>/dev/null))
         
         if [[ ${#matches[@]} -gt 0 ]]; then
-            # Add matches as completions
-            # The key is to let zsh handle the replacement properly
-            _wanted projects expl 'project' compadd -a matches
+            # Enable menu complete for this session
+            \builtin local old_menu_complete
+            [[ -o MENU_COMPLETE ]] && old_menu_complete=1 || old_menu_complete=0
+            \builtin setopt MENU_COMPLETE
+            
+            _wanted projects expl 'project' compadd "${matches[@]}"
+            
+            # Restore previous setting
+            [[ $old_menu_complete -eq 0 ]] && \builtin unsetopt MENU_COMPLETE
         fi
-        
-        # Send a Device Status Report (DSR) code to the terminal
-        \builtin printf '\e[5n'
 
         return 0
     }
 
-    # Bind the reset-prompt widget to the '\e[0n' key sequence. 
-    # This sequence corresponds to the terminal's response to the DSR code mentioned above.
-    \builtin bindkey '\e[0n' 'reset-prompt'
-
-    # Configure completion behavior for menu selection
-    # Enable menu selection for cycling through options
-    zstyle ':completion:*:*:__project_p:*:projects' menu select
-    # Preserve the order from our query command (don't sort)
-    zstyle ':completion:*:*:__project_p:*:projects' sort false
-    # Always show the list
-    zstyle ':completion:*:*:__project_p:*:projects' force-list always
-    
-    # Check if compdef function is available. 
-    # If it is, register the __project_p_complete function as the completion function for the __project_p command.
-    [[ "${+functions[compdef]}" -ne 0 ]] && \compdef __project_p_complete __project_p
+    # Register completion function
+    [[ "${+functions[compdef]}" -ne 0 ]] && \compdef __project_p_complete p
 fi
 
 \builtin unalias p &>/dev/null || \builtin true
