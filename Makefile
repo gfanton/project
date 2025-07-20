@@ -1,21 +1,59 @@
-template_files := $(shell find . -type f -name '*.init')
-go_files := $(shell find . -type f -name '*.go')
-go_bin := $(GOBIN)/project
+.PHONY: build install test lint clean tidy test-coverage test-coverage-html bench
 
-lint:
-	go vet -v ./...
+# Variables
+APP_NAME := project
+BUILD_DIR := ./build
+CMD_DIR := ./cmd/project
+GO_FILES := $(shell find . -type f -name '*.go')
+TEMPLATE_FILES := $(shell find pkg/template -type f -name '*.init' 2>/dev/null || true)
+COVERAGE_OUT := coverage.out
+COVERAGE_HTML := coverage.html
 
+# Default target
+all: build
+
+# Build the application
+build: $(BUILD_DIR)/$(APP_NAME)
+
+$(BUILD_DIR)/$(APP_NAME): $(GO_FILES) $(TEMPLATE_FILES) go.mod go.sum
+	@mkdir -p $(BUILD_DIR)
+	go build -o $(BUILD_DIR)/$(APP_NAME) $(CMD_DIR)
+
+# Install the application to GOBIN
+install:
+	go install $(CMD_DIR)
+
+# Run tests
 test:
 	go test -v ./...
 
+# Run tests with coverage
+test-coverage:
+	go test -v -coverprofile=$(COVERAGE_OUT) ./...
+	go tool cover -func=$(COVERAGE_OUT)
 
-build: $(go_files) go.mod Makefile
-	@mkdir -p ./build
-	go build -o ./build/project
-.PHONY: build
+# Generate HTML coverage report
+test-coverage-html: test-coverage
+	go tool cover -html=$(COVERAGE_OUT) -o $(COVERAGE_HTML)
+	@echo "Coverage report generated: $(COVERAGE_HTML)"
 
-install: $(go_bin)
-$(go_bin): $(go_files) $(template_files) go.mod Makefile 
-	@mkdir -p ./build
-	go install -v .
-.PHONY: install
+# Run benchmarks
+bench:
+	go test -bench=. -benchmem ./...
+
+# Run linting
+lint:
+	go vet ./...
+	go fmt ./...
+
+# Clean build artifacts
+clean:
+	rm -rf $(BUILD_DIR) $(COVERAGE_OUT) $(COVERAGE_HTML)
+
+# Tidy dependencies
+tidy:
+	go mod tidy
+
+# Development target - build and run
+dev: build
+	$(BUILD_DIR)/$(APP_NAME)

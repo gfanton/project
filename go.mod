@@ -1,13 +1,11 @@
 module github.com/gfanton/project
 
-go 1.19
+go 1.23
 
 require (
 	github.com/go-git/go-git/v5 v5.4.2
 	github.com/lithammer/fuzzysearch v1.1.5
-	github.com/oklog/run v1.1.0
 	github.com/peterbourgon/ff/v3 v3.1.2
-	go.uber.org/zap v1.21.0
 )
 
 require (
@@ -24,11 +22,10 @@ require (
 	github.com/pelletier/go-toml v1.6.0 // indirect
 	github.com/sergi/go-diff v1.1.0 // indirect
 	github.com/xanzy/ssh-agent v0.3.0 // indirect
-	go.uber.org/atomic v1.7.0 // indirect
-	go.uber.org/multierr v1.6.0 // indirect
 	golang.org/x/crypto v0.0.0-20210421170649-83a5a9bb288b // indirect
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4 // indirect
 	golang.org/x/sys v0.0.0-20210510120138-977fb7262007 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	gopkg.in/warnings.v0 v0.1.2 // indirect
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
