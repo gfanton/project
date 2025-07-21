@@ -1,4 +1,6 @@
+# Build outputs
 /build
+/dist
 
 # Binaries for programs and plugins
 *.exe
@@ -12,6 +14,25 @@
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
+coverage.html
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+# Nix build outputs
+result
+result-*
+
+# Test environments and debug files
+.test-*/
+.zsh-test/
+*_FIXED.md
+*_FIX_SUMMARY.md
+*completion-debug*
+trace-*.zsh
+debug-*.zsh
+
+# Temporary files
+*.log
+build-output.log
+vendor-hash.txt
