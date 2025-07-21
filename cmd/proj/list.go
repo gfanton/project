@@ -25,7 +25,7 @@ func newListCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 
 	return &ffcli.Command{
 		Name:       "list",
-		ShortUsage: "project list [prefix] [flags]",
+		ShortUsage: "proj list [prefix] [flags]",
 		ShortHelp:  "List all projects",
 		LongHelp: `List all projects in the configured root directory.
 

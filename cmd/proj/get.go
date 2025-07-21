@@ -27,7 +27,7 @@ func newGetCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 
 	return &ffcli.Command{
 		Name:       "get",
-		ShortUsage: "project get [flags] <name>...",
+		ShortUsage: "proj get [flags] <name>...",
 		ShortHelp:  "Clone projects from GitHub",
 		LongHelp: `Clone one or more projects from GitHub into the configured directory structure.
 
@@ -36,10 +36,10 @@ The project name can be:
   - "user/project" (explicit user specification)
 
 Examples:
-  project get myrepo
-  project get johndoe/webapp
-  project get --ssh johndoe/webapp
-  project get repo1 user2/repo2`,
+  proj get myrepo
+  proj get johndoe/webapp
+  proj get --ssh johndoe/webapp
+  proj get repo1 user2/repo2`,
 		FlagSet: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			return runGet(ctx, logger, cfg, getCfg, args)

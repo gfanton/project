@@ -14,7 +14,7 @@ import (
 func newNewCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "new",
-		ShortUsage: "project new <name>",
+		ShortUsage: "proj new <name>",
 		ShortHelp:  "Create a new project directory",
 		LongHelp: `Create a new project directory in the configured root.
 
@@ -23,8 +23,8 @@ The project name can be:
   - "user/project" (explicit user specification)
 
 Example:
-  project new myapp
-  project new johndoe/webapp`,
+  proj new myapp
+  proj new johndoe/webapp`,
 		Exec: func(ctx context.Context, args []string) error {
 			return runNew(ctx, logger, cfg, args)
 		},

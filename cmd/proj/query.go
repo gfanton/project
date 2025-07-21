@@ -49,14 +49,14 @@ func newQueryCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 
 	return &ffcli.Command{
 		Name:       "query",
-		ShortUsage: "project query [flags] [search]",
+		ShortUsage: "proj query [flags] [search]",
 		ShortHelp:  "Search for projects using fuzzy matching",
 		LongHelp: `Search for projects using fuzzy matching.
 
 Examples:
-  project query myapp
-  project query --exclude $(pwd) myapp
-  project query --abspath --limit 5 app`,
+  proj query myapp
+  proj query --exclude $(pwd) myapp
+  proj query --abspath --limit 5 app`,
 		FlagSet: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			return runQuery(ctx, logger, cfg, queryCfg, args)

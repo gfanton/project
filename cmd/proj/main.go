@@ -29,8 +29,14 @@ func main() {
 	logger := cfg.Logger()
 
 	root := &ffcli.Command{
-		Name:    "project [flags] <subcommand>",
-		FlagSet: flag.NewFlagSet("project", flag.ExitOnError),
+		Name:       "proj",
+		ShortUsage: "proj [flags] <subcommand>",
+		ShortHelp:  "A tool for managing Git projects in GitHub-style directory structure",
+		LongHelp: `proj is a command-line tool for managing Git projects organized in a GitHub-style
+directory structure. It provides fast project navigation, creation, and management.
+
+Use 'proj <subcommand> -h' for more information about a specific command.`,
+		FlagSet: flag.NewFlagSet("proj", flag.ContinueOnError),
 		Exec: func(ctx context.Context, args []string) error {
 			return flag.ErrHelp
 		},
@@ -40,6 +46,7 @@ func main() {
 			newNewCommand(logger, cfg),
 			newGetCommand(logger, cfg),
 			newQueryCommand(logger, cfg),
+			newWorkspaceCommand(logger, cfg),
 		},
 	}
 

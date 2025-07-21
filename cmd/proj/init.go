@@ -14,7 +14,7 @@ import (
 func newInitCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "init",
-		ShortUsage: "project init <shell>",
+		ShortUsage: "proj init <shell>",
 		ShortHelp:  "Generate shell integration script",
 		LongHelp: `Generate shell integration script for the specified shell.
 
@@ -22,7 +22,7 @@ Supported shells:
   zsh    Generate zsh integration script
 
 Example:
-  eval "$(project init zsh)"`,
+  eval "$(proj init zsh)"`,
 		Exec: func(ctx context.Context, args []string) error {
 			return runInit(ctx, logger, cfg, args)
 		},
