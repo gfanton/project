@@ -33,7 +33,7 @@ func TestShellIntegration(t *testing.T) {
 		},
 		{
 			name:     "zsh_navigation",
-			shell:    "zsh", 
+			shell:    "zsh",
 			testFunc: testZshNavigation,
 		},
 		{
@@ -49,7 +49,7 @@ func TestShellIntegration(t *testing.T) {
 			if !isShellAvailable(tt.shell) {
 				t.Skipf("%s not available, skipping test", tt.shell)
 			}
-			
+
 			tt.testFunc(t, projectBin)
 		})
 	}
@@ -57,25 +57,25 @@ func TestShellIntegration(t *testing.T) {
 
 func buildProjectBinary(t *testing.T) string {
 	t.Helper()
-	
+
 	// Get project root
 	wd, err := os.Getwd()
 	if err != nil {
 		t.Fatalf("failed to get working directory: %v", err)
 	}
-	
+
 	// Navigate to project root (assuming we're in internal/shell)
 	projectRoot := filepath.Join(wd, "..", "..")
-	
+
 	// Build binary
 	binaryPath := filepath.Join(projectRoot, "build", "proj")
 	cmd := exec.Command("go", "build", "-o", binaryPath, "./cmd/proj")
 	cmd.Dir = projectRoot
-	
+
 	if err := cmd.Run(); err != nil {
 		t.Fatalf("failed to build project binary: %v", err)
 	}
-	
+
 	return binaryPath
 }
 
@@ -87,16 +87,16 @@ func isShellAvailable(shell string) bool {
 func testZshInitScript(t *testing.T, projectBin string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	// Generate zsh init script
 	cmd := exec.CommandContext(ctx, projectBin, "init", "zsh")
 	output, err := cmd.Output()
 	if err != nil {
 		t.Fatalf("failed to generate zsh init script: %v", err)
 	}
-	
+
 	script := string(output)
-	
+
 	// Verify essential components
 	expectedComponents := []string{
 		"function __project_p()",
@@ -104,7 +104,7 @@ func testZshInitScript(t *testing.T, projectBin string) {
 		"alias p=__project_p",
 		"# compdef p",
 	}
-	
+
 	for _, component := range expectedComponents {
 		if !strings.Contains(script, component) {
 			t.Errorf("zsh init script missing component: %s", component)
@@ -116,13 +116,13 @@ func testZshCompletion(t *testing.T, projectBin string) {
 	// Create temporary test environment
 	testDir := createTestEnvironment(t, projectBin)
 	defer os.RemoveAll(testDir)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	// Test that zsh can source the completion script without errors
 	configFile := filepath.Join(testDir, ".projectrc")
-	
+
 	script := fmt.Sprintf(`
 set -e
 # Enable completion system and zle
@@ -154,18 +154,18 @@ fi
 
 echo "Completion test passed"
 `, projectBin, configFile, projectBin)
-	
+
 	formattedScript := script
-	
+
 	cmd := exec.CommandContext(ctx, "zsh", "-c", formattedScript)
 	cmd.Env = append(os.Environ(), "PROJECT_CONFIG_FILE="+configFile)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Logf("Script that failed:\n%s", formattedScript)
 		t.Fatalf("zsh completion test failed: %v\nOutput: %s", err, output)
 	}
-	
+
 	if !strings.Contains(string(output), "Completion test passed") {
 		t.Errorf("completion test did not pass as expected. Output: %s", output)
 	}
@@ -175,12 +175,12 @@ func testZshNavigation(t *testing.T, projectBin string) {
 	// Create temporary test environment
 	testDir := createTestEnvironment(t, projectBin)
 	defer os.RemoveAll(testDir)
-	
+
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
-	
+
 	configFile := filepath.Join(testDir, ".projectrc")
-	
+
 	// Test navigation functionality
 	script := fmt.Sprintf(`
 set -e
@@ -198,17 +198,17 @@ __project_cd() {
 result=$(p project1 2>/dev/null || echo "NO_MATCH")
 echo "Navigation result: $result"
 `, configFile, projectBin)
-	
+
 	formattedScript := script
-	
+
 	cmd := exec.CommandContext(ctx, "zsh", "-c", formattedScript)
 	cmd.Env = append(os.Environ(), "PROJECT_CONFIG_FILE="+configFile)
-	
+
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("zsh navigation test failed: %v\nOutput: %s", err, output)
 	}
-	
+
 	// The output should contain either a navigation result or indicate no match
 	outputStr := string(output)
 	if !strings.Contains(outputStr, "Navigation result:") {
@@ -218,28 +218,28 @@ echo "Navigation result: $result"
 
 func createTestEnvironment(t *testing.T, projectBin string) string {
 	t.Helper()
-	
+
 	testDir, err := os.MkdirTemp("", "project-shell-test-*")
 	if err != nil {
 		t.Fatalf("failed to create test directory: %v", err)
 	}
-	
+
 	// Create test project structure
 	codeDir := filepath.Join(testDir, "code")
 	projects := []string{
 		"user1/project1",
-		"user1/project2", 
+		"user1/project2",
 		"user2/project3",
 		"user2/awesome-project",
 		"user3/my-cool-app",
 	}
-	
+
 	for _, project := range projects {
 		projectPath := filepath.Join(codeDir, project)
 		if err := os.MkdirAll(projectPath, 0755); err != nil {
 			t.Fatalf("failed to create project directory %s: %v", project, err)
 		}
-		
+
 		// Initialize git repo
 		cmd := exec.Command("git", "init", "--quiet")
 		cmd.Dir = projectPath
@@ -247,16 +247,16 @@ func createTestEnvironment(t *testing.T, projectBin string) string {
 			t.Fatalf("failed to init git repo in %s: %v", project, err)
 		}
 	}
-	
+
 	// Create config file
 	configFile := filepath.Join(testDir, ".projectrc")
 	configContent := fmt.Sprintf(`root = "%s"
 user = "testuser"
 `, codeDir)
-	
+
 	if err := os.WriteFile(configFile, []byte(configContent), 0644); err != nil {
 		t.Fatalf("failed to create config file: %v", err)
 	}
-	
+
 	return testDir
 }

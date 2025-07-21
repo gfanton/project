@@ -83,12 +83,12 @@ func TestSearch(t *testing.T) {
 	service := NewService(logger, rootDir)
 
 	tests := []struct {
-		name           string
-		opts           Options
-		expectedCount  int
-		expectedFirst  string
-		shouldContain  []string
-		shouldExclude  []string
+		name          string
+		opts          Options
+		expectedCount int
+		expectedFirst string
+		shouldContain []string
+		shouldExclude []string
 	}{
 		{
 			name: "search for 'app'",
@@ -194,7 +194,7 @@ func TestSearchWithValidExcludePath(t *testing.T) {
 	service := NewService(logger, rootDir)
 
 	ctx := context.Background()
-	
+
 	// Test with a valid but non-existent exclude path (should work fine)
 	opts := Options{
 		Query:   "app",
@@ -437,19 +437,19 @@ func setupRankingTestProjects(t *testing.T) (string, func()) {
 		{"foobar/foo", true},
 		{"foo/bar", true},
 		{"foobar/baz", true},
-		
+
 		// Substring matches
 		{"foobar/foo-by-example", true},
 		{"foobar/foo-test", true},
 		{"foobar/awesome-foo", true},
 		{"foo/foo-lib", true},
 		{"otherfoo/bar", true},
-		
+
 		// Fuzzy matches
 		{"foobar/project", true},
 		{"company/fooish", true},
 		{"dev/foobaz", true},
-		
+
 		// Non-matches that shouldn't appear
 		{"bar/baz", true},
 		{"company/project", true},
@@ -485,19 +485,19 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 	service := NewService(logger, rootDir)
 
 	tests := []struct {
-		name           string
-		query          string
-		expectedOrder  []string // Expected order of results (first = highest priority)
-		expectedFirst  string   // Must be the first result
-		minResults     int      // Minimum number of results expected
+		name          string
+		query         string
+		expectedOrder []string // Expected order of results (first = highest priority)
+		expectedFirst string   // Must be the first result
+		minResults    int      // Minimum number of results expected
 	}{
 		{
 			name:  "exact full match takes priority",
 			query: "foobar/foo",
 			expectedOrder: []string{
-				"foobar/foo",           // distance: 0 (exact full match)
-				"foobar/foo-test",      // distance: 5 (fuzzy match on name part)
-				"foobar/awesome-foo",   // distance: 8 (fuzzy match on name part)
+				"foobar/foo",            // distance: 0 (exact full match)
+				"foobar/foo-test",       // distance: 5 (fuzzy match on name part)
+				"foobar/awesome-foo",    // distance: 8 (fuzzy match on name part)
 				"foobar/foo-by-example", // distance: 11 (fuzzy match on name part)
 			},
 			expectedFirst: "foobar/foo",
@@ -507,12 +507,12 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 			name:  "exact project name match",
 			query: "foo",
 			expectedOrder: []string{
-				"foo/foo-lib",          // distance: 9 (contains in both org and name)
-				"foobar/foo",           // distance: 9 (contains in name, exact match gets +2)
-				"foobar/foo-test",      // distance: 27 (contains in name)
-				"foobar/awesome-foo",   // distance: 33 (contains in name)
+				"foo/foo-lib",           // distance: 9 (contains in both org and name)
+				"foobar/foo",            // distance: 9 (contains in name, exact match gets +2)
+				"foobar/foo-test",       // distance: 27 (contains in name)
+				"foobar/awesome-foo",    // distance: 33 (contains in name)
 				"foobar/foo-by-example", // distance: 39 (contains in name)
-				"foo/bar",              // distance: 55 (contains in org only)
+				"foo/bar",               // distance: 55 (contains in org only)
 			},
 			expectedFirst: "foo/foo-lib", // Alphabetically first among tied distance
 			minResults:    6,
@@ -521,11 +521,11 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 			name:  "exact org match",
 			query: "foobar",
 			expectedOrder: []string{
-				"foobar/baz",           // distance: 55 (contains in org, exact org match gets +1)
-				"foobar/foo",           // distance: 55 (same)
-				"foobar/project",       // distance: 59
-				"foobar/foo-test",      // distance: 60
-				"foobar/awesome-foo",   // distance: 63
+				"foobar/baz",            // distance: 55 (contains in org, exact org match gets +1)
+				"foobar/foo",            // distance: 55 (same)
+				"foobar/project",        // distance: 59
+				"foobar/foo-test",       // distance: 60
+				"foobar/awesome-foo",    // distance: 63
 				"foobar/foo-by-example", // distance: 66
 			},
 			expectedFirst: "foobar/baz", // First alphabetically among same distance
@@ -535,7 +535,7 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 			name:  "substring match prioritizes shorter strings",
 			query: "foo",
 			expectedOrder: []string{
-				"foo/foo-lib",     // distance: 9 
+				"foo/foo-lib",     // distance: 9
 				"foobar/foo",      // distance: 9
 				"foobar/foo-test", // distance: 27
 			},
@@ -547,13 +547,13 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 			query: "foo",
 			// Project name substring should rank higher than org substring
 			expectedOrder: []string{
-				"foo/foo-lib",          // distance: 9
-				"foobar/foo",           // distance: 9
-				"foobar/foo-test",      // distance: 27
-				"foobar/awesome-foo",   // distance: 33
+				"foo/foo-lib",           // distance: 9
+				"foobar/foo",            // distance: 9
+				"foobar/foo-test",       // distance: 27
+				"foobar/awesome-foo",    // distance: 33
 				"foobar/foo-by-example", // distance: 39
-				"foo/bar",              // distance: 55
-				"foobar/baz",           // distance: 67
+				"foo/bar",               // distance: 55
+				"foobar/baz",            // distance: 67
 			},
 			expectedFirst: "foo/foo-lib",
 			minResults:    7,
@@ -568,7 +568,7 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 			name:  "case insensitive matching",
 			query: "FOO",
 			expectedOrder: []string{
-				"foo/foo-lib",    // Should match despite case difference
+				"foo/foo-lib", // Should match despite case difference
 				"foobar/foo",
 				"foobar/foo-test",
 			},

@@ -33,42 +33,44 @@ function __project_p() {
     fi
 }
 
-# Completion function - following zsh best practices
+# User-facing function
+function p() { __project_p "$@"; }
+
+# Completion function
 function _p() {
     local curcontext="$curcontext" state line
     typeset -A opt_args
 
-    # Get what the user has typed so far
-    local query="${words[2,-1]}"
-    
+    # Build the query from the command line
+    local query
+    if (( CURRENT > 1 )); then
+        query="${words[2,CURRENT]}"
+    else
+        query=""
+    fi
+
     # Get project completions
     local -a projects
-    projects=($(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- ${query} 2>/dev/null))
-    
-    # Add completions if we have projects
+    projects=($(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- $query 2>/dev/null))
+
     if [[ ${#projects[@]} -gt 0 ]]; then
         compadd -a projects
         return 0
     fi
-    
+
     return 1
 }
 
-# Register completion function
+# Initialize completion system if not already done
 if [[ -n "${ZSH_VERSION-}" ]]; then
-    # Initialize completion system if not already done
     if [[ ${+functions[compdef]} -eq 0 ]]; then
         autoload -U compinit
         compinit
     fi
-    
-    # Register completion
+
+    # Register completion for the function
     compdef _p p
 fi
-
-# Create the p alias
-\builtin unalias p &>/dev/null || \builtin true
-\builtin alias p=__project_p
 
 # To initialize project completion, add this to your ~/.zshrc:
 #

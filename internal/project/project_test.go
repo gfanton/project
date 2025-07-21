@@ -255,8 +255,8 @@ func TestWalk(t *testing.T) {
 		"user2/project3",
 		"user1/project1/.git",
 		"user2/project3/.git",
-		"not-a-project",    // Should be ignored (wrong depth)
-		"user3",            // Should be ignored (wrong depth)
+		"not-a-project", // Should be ignored (wrong depth)
+		"user3",         // Should be ignored (wrong depth)
 	}
 
 	for _, dir := range testStructure {

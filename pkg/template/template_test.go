@@ -21,7 +21,7 @@ func TestRender(t *testing.T) {
 			},
 			expectError: false,
 			expectContains: []string{
-				"# compdef p",
+				"# compdef __project_p_complete p",
 				"__project_pwd",
 				"__project_cd",
 				"__project_p",
@@ -38,7 +38,7 @@ func TestRender(t *testing.T) {
 			expectError: false,
 			expectContains: []string{
 				"/custom/path/to/project",
-				"# compdef p",
+				"# compdef __project_p_complete p",
 			},
 		},
 		{
@@ -111,9 +111,9 @@ func TestRenderZshTemplateStructure(t *testing.T) {
 
 	// Verify zsh-specific elements
 	zshElements := []string{
-		"# compdef p",
+		"# compdef __project_p_complete p",
 		"[[ -o zle ]]",
-		"compdef __project_p_complete __project_p",
+		"\\compdef __project_p_complete p",
 		"alias p=__project_p",
 	}
 

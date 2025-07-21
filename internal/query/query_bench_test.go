@@ -24,7 +24,7 @@ func setupBenchmarkProjects(b *testing.B, numProjects int) (string, func()) {
 		org := fmt.Sprintf("org%d", i/10)
 		project := fmt.Sprintf("project%d", i)
 		projectPath := filepath.Join(tempDir, org, project)
-		
+
 		err := os.MkdirAll(projectPath, 0755)
 		if err != nil {
 			b.Fatalf("Failed to create project directory %s: %v", projectPath, err)
