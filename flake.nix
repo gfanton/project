@@ -1,5 +1,11 @@
 {
   description = "A Git-based project management tool with zoxide-like navigation for GitHub-style directory structure";
+  
+  # For consumers: Use release branch for real vendorHash or latest tag
+  # Examples:
+  #   project.url = "github:gfanton/project/release";        # Always latest from release branch
+  #   project.url = "github:gfanton/project?ref=latest";     # Latest release tag  
+  #   project.url = "github:gfanton/project?ref=v1.2.3";     # Specific version tag
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -20,7 +26,8 @@
           
           src = ./.;
           
-          vendorHash = "sha256-8T/Xduz5u9A0dEFKjbip01jYolacocdfxLIsORvReiY=";
+          # Use fakeHash for development, replaced with real hash during releases
+          vendorHash = pkgs.lib.fakeHash;
 
           ldflags = [
             "-s"

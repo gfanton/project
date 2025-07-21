@@ -13,17 +13,57 @@ This tool helps you manage local Git projects by:
 
 ## Installation
 
+### Using Nix Flakes (Recommended)
+
+Add to your `flake.nix`:
+
+```nix
+{
+  inputs = {
+    # Latest stable release (recommended)
+    project.url = "github:gfanton/project?ref=latest";
+    
+    # Or specific version
+    # project.url = "github:gfanton/project?ref=v1.2.3";
+    
+    # Or always latest from release branch
+    # project.url = "github:gfanton/project/release";
+  };
+
+  outputs = { self, nixpkgs, project, ... }: {
+    # Add to your packages
+    environment.systemPackages = [ project.packages.${system}.default ];
+  };
+}
+```
+
+### Direct Installation with Nix
+
+```bash
+# From latest tag (recommended for stability)
+nix profile install github:gfanton/project?ref=latest
+
+# From release branch (always latest, but may be unstable)
+nix profile install github:gfanton/project/release
+
+# Into development shell
+nix shell github:gfanton/project?ref=latest
+```
+
 ### Build from source
 ```bash
 git clone https://github.com/gfanton/project
 cd project
+
+# With Nix (recommended)
+nix develop --impure  # --impure needed for development
+make build
+
+# Or traditional Go
 make build
 # Or install to $GOBIN
 make install
 ```
-
-### Add to PATH
-After building, add the binary to your PATH or use `make install` to install to `$GOBIN`.
 
 ## Usage
 

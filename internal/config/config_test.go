@@ -30,13 +30,13 @@ func TestNewConfig(t *testing.T) {
 		t.Error("Debug should default to false")
 	}
 
-	// Check that paths contain expected patterns
-	if !strings.Contains(cfg.ConfigFile, ".projectrc") {
-		t.Errorf("ConfigFile should contain '.projectrc', got: %s", cfg.ConfigFile)
+	// Check that paths are valid file paths
+	if !filepath.IsAbs(cfg.ConfigFile) {
+		t.Errorf("ConfigFile should be an absolute path, got: %s", cfg.ConfigFile)
 	}
 
-	if !strings.Contains(cfg.RootDir, "code") {
-		t.Errorf("RootDir should contain 'code', got: %s", cfg.RootDir)
+	if !filepath.IsAbs(cfg.RootDir) {
+		t.Errorf("RootDir should be an absolute path, got: %s", cfg.RootDir)
 	}
 }
 

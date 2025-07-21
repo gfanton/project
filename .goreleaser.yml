@@ -1,0 +1,94 @@
+version: 2
+
+project_name: proj
+
+before:
+  hooks:
+    - go mod tidy
+    - go generate ./...
+
+builds:
+  - id: proj
+    main: ./cmd/proj
+    binary: proj
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - windows
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+
+archives:
+  - id: proj
+    builds:
+      - proj
+    format: tar.gz
+    format_overrides:
+      - goos: windows
+        format: zip
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - '^style:'
+      - '^refactor:'
+      - Merge pull request
+      - Merge branch
+
+nfpms:
+  - id: proj
+    package_name: proj
+    vendor: gfanton
+    homepage: https://github.com/gfanton/project
+    maintainer: gfanton <gfanton@example.com>
+    description: A Git-based project management tool with zoxide-like navigation
+    license: MIT
+    formats:
+      - deb
+      - rpm
+    dependencies:
+      - git
+    recommends:
+      - zsh
+
+# Generate Nix package
+nix:
+  - name: proj
+    description: A Git-based project management tool with zoxide-like navigation
+    homepage: https://github.com/gfanton/project
+    license: mit
+    extra_install: |-
+      installShellCompletion --cmd proj \
+        --bash <($out/bin/proj completion bash) \
+        --fish <($out/bin/proj completion fish) \
+        --zsh <($out/bin/proj completion zsh)
+
+release:
+  discussion_category_name: General
+  prerelease: auto
+  mode: replace

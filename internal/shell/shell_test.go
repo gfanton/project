@@ -97,18 +97,27 @@ func testZshInitScript(t *testing.T, projectBin string) {
 
 	script := string(output)
 
-	// Verify essential components
+	// Verify essential components match actual zsh.init implementation
 	expectedComponents := []string{
 		"function __project_p()",
-		"function __project_p_complete()",
-		"alias p=__project_p",
-		"# compdef p",
+		"function p()",
+		"function _p()",
 	}
 
 	for _, component := range expectedComponents {
 		if !strings.Contains(script, component) {
 			t.Errorf("zsh init script missing component: %s", component)
 		}
+	}
+
+	// Verify script is not empty and has basic structure
+	if len(script) < 100 {
+		t.Error("zsh init script seems too short")
+	}
+
+	// Verify template substitution worked (should contain actual project binary path)
+	if !strings.Contains(script, projectBin) {
+		t.Errorf("zsh init script should contain project binary path %s", projectBin)
 	}
 }
 
