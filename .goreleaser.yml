@@ -28,12 +28,14 @@ builds:
 
 archives:
   - id: proj
-    builds:
+    ids:
       - proj
-    format: tar.gz
+    formats:
+      - tar.gz
     format_overrides:
       - goos: windows
-        format: zip
+        formats:
+          - zip
     name_template: >-
       {{ .ProjectName }}_
       {{- title .Os }}_
@@ -76,9 +78,12 @@ nfpms:
     recommends:
       - zsh
 
-# Generate Nix package
+# Generate Nix package (uncomment repository section if you have a NUR repo)
 nix:
   - name: proj
+    # repository:
+    #   owner: gfanton
+    #   name: nur-packages
     description: A Git-based project management tool with zoxide-like navigation
     homepage: https://github.com/gfanton/project
     license: mit
@@ -89,6 +94,5 @@ nix:
         --zsh <($out/bin/proj completion zsh)
 
 release:
-  discussion_category_name: General
   prerelease: auto
   mode: replace
