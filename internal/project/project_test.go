@@ -318,6 +318,75 @@ func TestWalk(t *testing.T) {
 	}
 }
 
+func TestWalkExcludesDotDirectories(t *testing.T) {
+	// Create temporary directory structure for testing
+	tempDir, err := os.MkdirTemp("", "project-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create test directory structure including dot directories
+	testStructure := []string{
+		"user1/project1",
+		"user2/project2", 
+		".workspace/user1/project1.feature", // Should be excluded
+		".vscode/settings",                   // Should be excluded  
+		".git/hooks",                         // Should be excluded
+		"user1/.hidden-project",              // Should be excluded
+		"user3/normal-project",               // Should be included
+	}
+
+	for _, dir := range testStructure {
+		fullPath := filepath.Join(tempDir, dir)
+		err := os.MkdirAll(fullPath, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create test directory %s: %v", fullPath, err)
+		}
+	}
+
+	// Collect projects found by Walk
+	var foundProjects []*Project
+	err = Walk(tempDir, func(d fs.DirEntry, p *Project) error {
+		foundProjects = append(foundProjects, p)
+		return nil
+	})
+
+	if err != nil {
+		t.Fatalf("Walk() failed: %v", err)
+	}
+
+	// Should only find normal projects, not those in dot directories
+	expectedProjects := []string{"user1/project1", "user2/project2", "user3/normal-project"}
+	
+	if len(foundProjects) != len(expectedProjects) {
+		t.Errorf("Expected %d projects, found %d", len(expectedProjects), len(foundProjects))
+		for i, p := range foundProjects {
+			t.Logf("Found project %d: %s", i, p.String())
+		}
+	}
+
+	// Create a map of found projects for easy checking
+	foundMap := make(map[string]bool)
+	for _, p := range foundProjects {
+		foundMap[p.String()] = true
+	}
+
+	// Verify each expected project was found
+	for _, expected := range expectedProjects {
+		if !foundMap[expected] {
+			t.Errorf("Expected project %s was not found", expected)
+		}
+	}
+
+	// Verify no dot directories were included
+	for _, p := range foundProjects {
+		if strings.HasPrefix(p.Organisation, ".") || strings.HasPrefix(p.Name, ".") {
+			t.Errorf("Found project in dot directory: %s", p.String())
+		}
+	}
+}
+
 func TestWalkWithError(t *testing.T) {
 	// Test walking a non-existent directory
 	err := Walk("/non-existent-directory", func(d fs.DirEntry, p *Project) error {

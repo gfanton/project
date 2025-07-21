@@ -648,3 +648,274 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 		})
 	}
 }
+
+func TestWorkspaceQuerying(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tempDir, cleanup := setupTestProjects(t)
+	defer cleanup()
+
+	// Create test workspaces for user1/webapp project
+	webappPath := filepath.Join(tempDir, "user1", "webapp")
+
+	// Create workspace service and add some test workspaces
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	service := NewService(logger, tempDir)
+	ctx := context.Background()
+
+	// Create a project instance
+	webappProject := &project.Project{
+		Path:         webappPath,
+		Name:         "webapp",
+		Organisation: "user1",
+	}
+
+	// Add test workspaces using the workspace service directly
+	err := service.workspaceService.Add(ctx, *webappProject, "feature-auth")
+	if err != nil {
+		t.Fatalf("Failed to add workspace: %v", err)
+	}
+
+	err = service.workspaceService.Add(ctx, *webappProject, "dev-branch")
+	if err != nil {
+		t.Fatalf("Failed to add workspace: %v", err)
+	}
+
+	err = service.workspaceService.Add(ctx, *webappProject, "bugfix-123")
+	if err != nil {
+		t.Fatalf("Failed to add workspace: %v", err)
+	}
+
+	tests := []struct {
+		name     string
+		query    string
+		expected []string // Expected results in format "project:workspace"
+		minCount int
+	}{
+		{
+			name:     "Query specific project workspace",
+			query:    "user1/webapp:feature",
+			expected: []string{"user1/webapp:feature-auth"},
+			minCount: 1,
+		},
+		{
+			name:     "Query workspace by branch name only",
+			query:    ":dev",
+			expected: []string{"user1/webapp:dev-branch"},
+			minCount: 1,
+		},
+		{
+			name:     "Query all workspaces for project",
+			query:    "webapp:",
+			expected: []string{"user1/webapp:bugfix-123", "user1/webapp:dev-branch", "user1/webapp:feature-auth"},
+			minCount: 3,
+		},
+		{
+			name:     "Query workspaces with partial project match",
+			query:    "user1:",
+			expected: []string{"user1/webapp:bugfix-123", "user1/webapp:dev-branch", "user1/webapp:feature-auth"},
+			minCount: 3,
+		},
+		{
+			name:     "Query workspace substring match",
+			query:    ":bug",
+			expected: []string{"user1/webapp:bugfix-123"},
+			minCount: 1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := service.Search(ctx, Options{
+				Query:     tt.query,
+				Separator: "\n",
+			})
+
+			if err != nil {
+				t.Fatalf("Search() error = %v", err)
+			}
+
+			if len(results) < tt.minCount {
+				t.Errorf("Search() returned %d results, want at least %d", len(results), tt.minCount)
+				t.Logf("Results:")
+				for i, result := range results {
+					workspace := result.Workspace
+					if workspace == "" {
+						t.Logf("  %d: %s (project)", i, result.Project.String())
+					} else {
+						t.Logf("  %d: %s:%s (workspace)", i, result.Project.String(), workspace)
+					}
+				}
+				return
+			}
+
+			// Check that all results are workspace results (have workspace set)
+			for _, result := range results {
+				if result.Workspace == "" {
+					t.Errorf("Expected workspace result but got project result: %s", result.Project.String())
+				}
+			}
+
+			// Check expected results
+			if len(tt.expected) > 0 {
+				actualResults := make([]string, len(results))
+				for i, result := range results {
+					actualResults[i] = result.Project.String() + ":" + result.Workspace
+				}
+
+				for i, expected := range tt.expected {
+					if i >= len(actualResults) {
+						t.Errorf("Missing expected result: %s", expected)
+						continue
+					}
+					if actualResults[i] != expected {
+						t.Errorf("Result[%d] = %s, want %s", i, actualResults[i], expected)
+					}
+				}
+			}
+		})
+	}
+
+	// Clean up workspaces
+	_ = service.workspaceService.Remove(ctx, *webappProject, "feature-auth", false)
+	_ = service.workspaceService.Remove(ctx, *webappProject, "dev-branch", false)
+	_ = service.workspaceService.Remove(ctx, *webappProject, "bugfix-123", false)
+}
+
+func TestQueryExcludesDotDirectories(t *testing.T) {
+	// Create temporary directory structure for testing
+	tempDir, err := os.MkdirTemp("", "query-dot-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create test directory structure including dot directories
+	testStructure := []struct {
+		path string
+		git  bool
+	}{
+		{"user1/normal-project", true},
+		{"user2/another-project", true},
+		{".workspace/user1/project.feature", false},  // Should be excluded from project search
+		{".vscode/settings", false},                   // Should be excluded 
+		{".git/hooks", false},                         // Should be excluded
+		{"user1/.hidden-project", false},              // Should be excluded
+	}
+
+	for _, item := range testStructure {
+		projectPath := filepath.Join(tempDir, item.path)
+		err := os.MkdirAll(projectPath, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create project directory %s: %v", projectPath, err)
+		}
+
+		if item.git {
+			_, err := git.PlainInit(projectPath, false)
+			if err != nil {
+				t.Fatalf("Failed to init git repo in %s: %v", projectPath, err)
+			}
+		}
+	}
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	service := NewService(logger, tempDir)
+
+	ctx := context.Background()
+	// Search for all projects (empty query)
+	results, err := service.Search(ctx, Options{
+		Query: "",
+		Limit: 0,
+	})
+
+	if err != nil {
+		t.Fatalf("Search() failed: %v", err)
+	}
+
+	// Should only find normal projects, not those in dot directories
+	expectedCount := 2 // user1/normal-project and user2/another-project
+	if len(results) != expectedCount {
+		t.Errorf("Expected %d projects, found %d", expectedCount, len(results))
+		for i, result := range results {
+			t.Logf("Found project %d: %s", i, result.Project.String())
+		}
+	}
+
+	// Verify no results contain dot directories
+	for _, result := range results {
+		projectName := result.Project.String()
+		if strings.Contains(projectName, "/.") || strings.HasPrefix(projectName, ".") {
+			t.Errorf("Found project in dot directory: %s", projectName)
+		}
+		
+		// Ensure the results are the expected normal projects
+		if projectName != "user1/normal-project" && projectName != "user2/another-project" {
+			t.Errorf("Unexpected project found: %s", projectName)
+		}
+	}
+}
+
+func TestWorkspaceFormat(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	tempDir := t.TempDir()
+	service := NewService(logger, tempDir)
+
+	testProject := &project.Project{
+		Path:         "/test/user1/webapp",
+		Name:         "webapp",
+		Organisation: "user1",
+	}
+
+	tests := []struct {
+		name     string
+		results  []*Result
+		opts     Options
+		expected string
+	}{
+		{
+			name: "Format workspace results",
+			results: []*Result{
+				{Project: testProject, Workspace: "feature-auth", Distance: 0},
+				{Project: testProject, Workspace: "dev-branch", Distance: 5},
+			},
+			opts: Options{Separator: "\n"},
+			expected: "user1/webapp:feature-auth\nuser1/webapp:dev-branch",
+		},
+		{
+			name: "Format mixed results",
+			results: []*Result{
+				{Project: testProject, Workspace: "", Distance: 0},
+				{Project: testProject, Workspace: "feature-auth", Distance: 5},
+			},
+			opts: Options{Separator: "\n"},
+			expected: "user1/webapp\nuser1/webapp:feature-auth",
+		},
+		{
+			name: "Format with distance",
+			results: []*Result{
+				{Project: testProject, Workspace: "feature-auth", Distance: 10},
+			},
+			opts: Options{Separator: "\n", ShowDistance: true},
+			expected: "user1/webapp:feature-auth - 10",
+		},
+		{
+			name: "Format absolute paths",
+			results: []*Result{
+				{Project: testProject, Workspace: "feature-auth", Distance: 0},
+			},
+			opts: Options{Separator: "\n", AbsPath: true},
+			expected: tempDir + "/.workspace/user1/webapp.feature-auth",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual := service.Format(tt.results, tt.opts)
+			if actual != tt.expected {
+				t.Errorf("Format() = %q, want %q", actual, tt.expected)
+			}
+		})
+	}
+}

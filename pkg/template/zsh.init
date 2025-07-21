@@ -28,7 +28,7 @@ function __project_p() {
     else
         \builtin local result
         # shellcheck disable=SC2312
-        result="$(\command {{.Exec}} query --abspath --exclude "$(__project_pwd)" --limit 1 -- "$@")" &&
+        result="$(\command {{.Exec}} query --abspath --limit 1 -- "$@")" &&
             __project_cd "${result}"
     fi
 }
@@ -51,7 +51,7 @@ function _p() {
 
     # Get project completions
     local -a projects
-    projects=($(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- $query 2>/dev/null))
+    projects=($(\command {{.Exec}} query --limit 20 -- $query 2>/dev/null))
 
     if [[ ${#projects[@]} -gt 0 ]]; then
         compadd -a projects

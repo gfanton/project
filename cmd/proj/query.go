@@ -50,13 +50,24 @@ func newQueryCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "query",
 		ShortUsage: "proj query [flags] [search]",
-		ShortHelp:  "Search for projects using fuzzy matching",
-		LongHelp: `Search for projects using fuzzy matching.
+		ShortHelp:  "Search for projects and workspaces using fuzzy matching",
+		LongHelp: `Search for projects and workspaces using fuzzy matching.
+
+Project search:
+  proj query myapp                    # Search projects matching "myapp"
+  proj query foo/bar                  # Search for "foo/bar" project
+
+Workspace search (requires ':' syntax):
+  proj query foo/bar:feature          # Search workspace "feature" in "foo/bar" project
+  proj query :feature                 # Search workspaces named "feature" in all projects  
+  proj query foo:                     # List all workspaces in projects matching "foo"
 
 Examples:
   proj query myapp
   proj query --exclude $(pwd) myapp
-  proj query --abspath --limit 5 app`,
+  proj query --abspath --limit 5 app
+  proj query gfanton/project:main
+  proj query :dev`,
 		FlagSet: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			return runQuery(ctx, logger, cfg, queryCfg, args)

@@ -138,8 +138,15 @@ func Walk(rootDir string, fn WalkFunc) error {
 			return nil
 		}
 
-		if sepCount > WalkDepth || strings.HasPrefix(filepath.Base(relPath), ".git") {
+		if sepCount > WalkDepth {
 			return fs.SkipDir
+		}
+
+		// Skip any directory that starts with a dot (like .workspace, .git, .vscode, etc.)
+		for _, part := range strings.Split(relPath, string(os.PathSeparator)) {
+			if strings.HasPrefix(part, ".") {
+				return fs.SkipDir
+			}
 		}
 
 		split := strings.Split(relPath, string(os.PathSeparator))
