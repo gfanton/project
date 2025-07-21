@@ -15,11 +15,12 @@ import (
 
 // Options holds configuration for project queries.
 type Options struct {
-	Query     string
-	Exclude   []string
-	AbsPath   bool
-	Separator string
-	Limit     int
+	Query        string
+	Exclude      []string
+	AbsPath      bool
+	Separator    string
+	Limit        int
+	ShowDistance bool
 }
 
 // Result represents a search result.
@@ -66,6 +67,9 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 		excludeMap[abs] = true
 	}
 
+	qLower := strings.ToLower(opts.Query)
+	qOrg, qName, qHasOrg := strings.Cut(qLower, "/")
+
 	err := project.Walk(s.rootDir, func(d fs.DirEntry, p *project.Project) error {
 		// Check if project should be excluded
 		if excludeMap[p.Path] {
@@ -73,53 +77,57 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 			return filepath.SkipDir
 		}
 
-		// Calculate match distance
-		projectName := p.String()
-
 		if opts.Query == "" {
+			results = append(results, &Result{
+				Project:  p,
+				Distance: 1,
+			})
 			return nil
 		}
 
-		queryLower := strings.ToLower(opts.Query)
+		// Calculate match distance
+		projectName := p.String()
+
+		distance := fuzzy.RankMatchFold(opts.Query, projectName)
+		if distance < 0 {
+			return nil
+		}
+
 		projectLower := strings.ToLower(projectName)
 
 		// Split project name into parts (org/name)
-		parts := strings.Split(projectName, "/")
-		projectNamePart := ""
-		orgPart := ""
-		if len(parts) == 2 {
-			orgPart = strings.ToLower(parts[0])
-			projectNamePart = strings.ToLower(parts[1])
-		}
+		pOrg, pName, _ := strings.Cut(projectLower, "/")
 
-		var distance int
-
-		// Priority ranking (lower distance = higher priority):
-		// 1. Exact full match: "foobar/foo" matches "foobar/foo"
-		if projectLower == queryLower {
-			distance = 0
-			// 2. Exact project name match: "foo" matches "foobar/foo"
-		} else if projectNamePart == queryLower {
-			distance = 1
-			// 3. Exact org match: "foobar" matches "foobar/foo"
-		} else if orgPart == queryLower {
-			distance = 2
-			// 4. Full substring match: "foo" in "foobar/foo"
-		} else if strings.Contains(projectLower, queryLower) {
-			distance = 10 + len(projectName) - len(opts.Query) // Shorter strings rank higher
-			// 5. Project name substring: "foo" in "foo-by-example"
-		} else if strings.Contains(projectNamePart, queryLower) {
-			distance = 100 + len(projectNamePart) - len(opts.Query)
-			// 6. Org substring: "fool" in "foobar"
-		} else if strings.Contains(orgPart, queryLower) {
-			distance = 200 + len(orgPart) - len(opts.Query)
-			// 7. Fuzzy match as fallback
-		} else {
-			fuzzyDistance := fuzzy.RankMatchFold(opts.Query, projectName)
-			if fuzzyDistance < 0 {
-				return nil // No match
+		if qHasOrg {
+			if qOrg != pOrg {
+				return nil
 			}
-			distance = 1000 + fuzzyDistance // Low priority for fuzzy matches
+
+			if qName == pName {
+				distance = 0
+			}
+
+			distance = fuzzy.RankMatchFold(qName, pName)
+		} else {
+
+			// TODO: improve this part to avoid multiple useless compare
+			if !strings.Contains(pOrg, qLower) {
+				distance += 100
+			}
+
+			if !strings.Contains(pName, qLower) {
+				distance += 50
+			}
+
+			switch qLower {
+			case pOrg:
+				distance += 1
+			case pName:
+				distance += 2
+			default:
+				distance += 3 + fuzzy.RankMatchFold(qLower, projectLower)
+				// continue with initial distance
+			}
 		}
 
 		results = append(results, &Result{
@@ -132,6 +140,43 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 			"distance", distance,
 		)
 
+		// // parts := strings.Split(projectName, "/")
+		// // projectNamePart := ""
+		// // orgPart := ""
+		// // if len(parts) == 2 {
+		// // 	orgPart = strings.ToLower(parts[0])
+		// // 	projectNamePart = strings.ToLower(parts[1])
+		// // }
+
+		// // Priority ranking (lower distance = higher priority):
+
+		// // 1. Exact full match: "foobar/foo" matches "foobar/foo"
+		// if projectLower == queryLower {
+		// 	distance = 0
+		// 	// 2. Exact project name match: "foo" matches "foobar/foo"
+		// } else if projectNamePart == queryLower {
+		// 	distance = 1
+		// 	// 3. Exact org match: "foobar" matches "foobar/foo"
+		// } else if orgPart == queryLower {
+		// 	distance = 2
+		// 	// 4. Project name substring: "foo" in "foo-by-example" (prioritized over full substring)
+		// } else if strings.Contains(projectNamePart, queryLower) {
+		// 	distance = 5 + len(projectNamePart) - len(opts.Query) // Shorter project names rank higher
+		// 	// 5. Org substring: "foo" in "foobar"
+		// } else if strings.Contains(orgPart, queryLower) {
+		// 	distance = 50 + len(orgPart) - len(opts.Query) // Shorter org names rank higher
+		// 	// 6. Full substring match: "foo" in "foobar/foo-test" (when not in project name)
+		// } else if strings.Contains(projectLower, queryLower) {
+		// 	distance = 100 + len(projectName) - len(opts.Query) // Shorter strings rank higher
+		// 	// 7. Fuzzy match as fallback
+		// } else {
+		// 	fuzzyDistance := fuzzy.RankMatchFold(opts.Query, projectName)
+		// 	if fuzzyDistance < 0 {
+		// 		return nil // No match
+		// 	}
+		// 	distance = 1000 + fuzzyDistance // Low priority for fuzzy matches
+		// }
+
 		return nil
 	})
 
@@ -139,8 +184,11 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 		return nil, fmt.Errorf("failed to walk projects: %w", err)
 	}
 
-	// Sort by distance (lower is better)
+	// Sort by distance (lower is better), then alphabetically by project name
 	sort.Slice(results, func(i, j int) bool {
+		if results[i].Distance == results[j].Distance {
+			return results[i].Project.String() < results[j].Project.String()
+		}
 		return results[i].Distance < results[j].Distance
 	})
 
@@ -167,7 +215,11 @@ func (s *Service) Format(results []*Result, opts Options) string {
 
 	var parts []string
 	for _, result := range results {
-		parts = append(parts, getPath(result.Project))
+		path := getPath(result.Project)
+		if opts.ShowDistance {
+			path += fmt.Sprintf(" - %d", result.Distance)
+		}
+		parts = append(parts, path)
 	}
 
 	return strings.Join(parts, opts.Separator)

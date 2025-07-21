@@ -13,11 +13,12 @@ import (
 )
 
 type queryConfig struct {
-	exclude   []string
-	all       bool
-	absPath   bool
-	separator string
-	limit     int
+	exclude      []string
+	all          bool
+	absPath      bool
+	separator    string
+	limit        int
+	showDistance bool
 }
 
 type excludeValue struct {
@@ -44,6 +45,7 @@ func newQueryCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
 	fs.BoolVar(&queryCfg.absPath, "abspath", false, "return absolute paths instead of project names")
 	fs.StringVar(&queryCfg.separator, "sep", "\n", "separator between results")
 	fs.IntVar(&queryCfg.limit, "limit", 20, "limit number of results (0 = no limit)")
+	fs.BoolVar(&queryCfg.showDistance, "v", false, "show distance with matching projects")
 
 	return &ffcli.Command{
 		Name:       "query",
@@ -68,11 +70,12 @@ func runQuery(ctx context.Context, logger *slog.Logger, cfg *config.Config, quer
 	queryService := query.NewService(logger, cfg.RootDir)
 
 	opts := query.Options{
-		Query:     searchQuery,
-		Exclude:   queryCfg.exclude,
-		AbsPath:   queryCfg.absPath,
-		Separator: queryCfg.separator,
-		Limit:     queryCfg.limit,
+		Query:        searchQuery,
+		Exclude:      queryCfg.exclude,
+		AbsPath:      queryCfg.absPath,
+		Separator:    queryCfg.separator,
+		Limit:        queryCfg.limit,
+		ShowDistance: queryCfg.showDistance,
 	}
 
 	results, err := queryService.Search(ctx, opts)

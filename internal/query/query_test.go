@@ -420,3 +420,230 @@ func TestSearchFuzzyMatching(t *testing.T) {
 		})
 	}
 }
+
+func setupRankingTestProjects(t *testing.T) (string, func()) {
+	// Create temporary directory structure for ranking tests
+	tempDir, err := os.MkdirTemp("", "ranking-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+
+	// Create test project structure using foo/foobar pattern
+	testProjects := []struct {
+		path string
+		git  bool
+	}{
+		// Exact matches
+		{"foobar/foo", true},
+		{"foo/bar", true},
+		{"foobar/baz", true},
+		
+		// Substring matches
+		{"foobar/foo-by-example", true},
+		{"foobar/foo-test", true},
+		{"foobar/awesome-foo", true},
+		{"foo/foo-lib", true},
+		{"otherfoo/bar", true},
+		
+		// Fuzzy matches
+		{"foobar/project", true},
+		{"company/fooish", true},
+		{"dev/foobaz", true},
+		
+		// Non-matches that shouldn't appear
+		{"bar/baz", true},
+		{"company/project", true},
+	}
+
+	for _, p := range testProjects {
+		projectPath := filepath.Join(tempDir, p.path)
+		err := os.MkdirAll(projectPath, 0755)
+		if err != nil {
+			t.Fatalf("Failed to create project directory %s: %v", projectPath, err)
+		}
+
+		if p.git {
+			_, err := git.PlainInit(projectPath, false)
+			if err != nil {
+				t.Fatalf("Failed to init git repo in %s: %v", projectPath, err)
+			}
+		}
+	}
+
+	cleanup := func() {
+		os.RemoveAll(tempDir)
+	}
+
+	return tempDir, cleanup
+}
+
+func TestSearchRankingAlgorithm(t *testing.T) {
+	rootDir, cleanup := setupRankingTestProjects(t)
+	defer cleanup()
+
+	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+	service := NewService(logger, rootDir)
+
+	tests := []struct {
+		name           string
+		query          string
+		expectedOrder  []string // Expected order of results (first = highest priority)
+		expectedFirst  string   // Must be the first result
+		minResults     int      // Minimum number of results expected
+	}{
+		{
+			name:  "exact full match takes priority",
+			query: "foobar/foo",
+			expectedOrder: []string{
+				"foobar/foo",           // distance: 0 (exact full match)
+				"foobar/foo-by-example", // distance: 100+ (project name substring)
+				"foobar/foo-test",      // distance: 100+ (project name substring)
+			},
+			expectedFirst: "foobar/foo",
+			minResults:    3,
+		},
+		{
+			name:  "exact project name match",
+			query: "foo",
+			expectedOrder: []string{
+				"foobar/foo",           // distance: 1 (exact project name)
+				"foo/bar",              // distance: 2 (exact org name) 
+				"foo/foo-lib",          // distance: 2 (exact org name)
+				"foobar/foo-test",      // distance: 5+8-3=10 (project name substring)
+				"foobar/awesome-foo",   // distance: 5+11-3=13 (project name substring)
+				"foobar/foo-by-example", // distance: 5+14-3=16 (project name substring)
+			},
+			expectedFirst: "foobar/foo", // Should prioritize exact project name over org name
+			minResults:    6,
+		},
+		{
+			name:  "exact org match",
+			query: "foobar",
+			expectedOrder: []string{
+				"foobar/awesome-foo",   // distance: 2 (exact org match) - alphabetically first
+				"foobar/baz",           // distance: 2 (exact org match)
+				"foobar/foo",           // distance: 2 (exact org match)
+				"foobar/foo-by-example", // distance: 2 (exact org match)
+				"foobar/foo-test",      // distance: 2 (exact org match)
+				"foobar/project",       // distance: 2 (exact org match)
+			},
+			expectedFirst: "foobar/awesome-foo", // First alphabetically among same distance
+			minResults:    6,
+		},
+		{
+			name:  "substring match prioritizes shorter strings",
+			query: "foo",
+			expectedOrder: []string{
+				"foobar/foo",      // distance: 1 (exact project name - highest priority)
+				"foo/bar",         // distance: 2 (exact org name)
+				"foo/foo-lib",     // distance: 2 (exact org name)
+			},
+			expectedFirst: "foobar/foo",
+			minResults:    3,
+		},
+		{
+			name:  "project name substring vs org substring",
+			query: "foo",
+			// Project name substring should rank higher than org substring
+			expectedOrder: []string{
+				"foobar/foo",           // distance: 1 (exact project name)
+				"foo/bar",              // distance: 2 (exact org)
+				"foo/foo-lib",          // distance: 2 (exact org)
+				"foobar/foo-test",      // distance: 5+8-3=10 (project name substring)
+				"foobar/awesome-foo",   // distance: 5+11-3=13 (project name substring)
+				"foobar/foo-by-example", // distance: 5+14-3=16 (project name substring)
+				"otherfoo/bar",         // distance: 50+8-3=55 (org substring)
+			},
+			expectedFirst: "foobar/foo",
+			minResults:    7,
+		},
+		{
+			name:  "single character should work",
+			query: "f",
+			// Should match projects containing 'f'
+			minResults: 8, // Most projects should match
+		},
+		{
+			name:  "case insensitive matching",
+			query: "FOO",
+			expectedOrder: []string{
+				"foobar/foo",    // Should match despite case difference
+				"foo/bar",
+				"foo/foo-lib",
+			},
+			expectedFirst: "foobar/foo",
+			minResults:    3,
+		},
+		{
+			name:       "no match should return empty",
+			query:      "nonexistent",
+			minResults: 0,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := context.Background()
+			opts := Options{
+				Query: tt.query,
+				Limit: 0, // Get all results
+			}
+
+			results, err := service.Search(ctx, opts)
+			if err != nil {
+				t.Fatalf("Search() failed: %v", err)
+			}
+
+			// Check minimum results
+			if len(results) < tt.minResults {
+				t.Errorf("Search() returned %d results, want at least %d", len(results), tt.minResults)
+			}
+
+			// Check first result if specified
+			if tt.expectedFirst != "" && len(results) > 0 {
+				first := results[0].Project.String()
+				if first != tt.expectedFirst {
+					t.Errorf("Search() first result = %s, want %s", first, tt.expectedFirst)
+					// Print all results for debugging
+					t.Logf("All results for query '%s':", tt.query)
+					for i, result := range results {
+						t.Logf("  %d: %s (distance: %d)", i, result.Project.String(), result.Distance)
+					}
+				}
+			}
+
+			// Check expected order for the first N results
+			if len(tt.expectedOrder) > 0 {
+				for i, expected := range tt.expectedOrder {
+					if i >= len(results) {
+						break // Not enough results to check this position
+					}
+					actual := results[i].Project.String()
+					if actual != expected {
+						t.Errorf("Search() result[%d] = %s, want %s", i, actual, expected)
+						// Print all results for debugging
+						t.Logf("All results for query '%s':", tt.query)
+						for j, result := range results {
+							t.Logf("  %d: %s (distance: %d)", j, result.Project.String(), result.Distance)
+						}
+						break
+					}
+				}
+			}
+
+			// Verify results are sorted by distance
+			for i := 1; i < len(results); i++ {
+				if results[i-1].Distance > results[i].Distance {
+					t.Errorf("Results not sorted by distance: result[%d].Distance=%d > result[%d].Distance=%d",
+						i-1, results[i-1].Distance, i, results[i].Distance)
+					// Print results for debugging
+					t.Logf("Results for query '%s':", tt.query)
+					for j, result := range results {
+						t.Logf("  %d: %s (distance: %d)", j, result.Project.String(), result.Distance)
+					}
+					break
+				}
+			}
+		})
+	}
+}
