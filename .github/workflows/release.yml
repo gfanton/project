@@ -45,24 +45,31 @@ jobs:
           # Create temporary release branch
           git checkout -b temp-release
           
-          # Calculate vendorHash
-          if ! nix build --impure 2>&1 | tee build-output.log; then
+          # Calculate vendorHash - build should fail with fakeHash
+          set +e  # Don't exit on build failure
+          nix build --impure 2>&1 | tee build-output.log
+          BUILD_EXIT_CODE=$?
+          set -e  # Re-enable exit on error
+          
+          if [ $BUILD_EXIT_CODE -eq 0 ]; then
+            echo "Build succeeded - vendorHash is already correct"
+          else
+            echo "Build failed as expected with fakeHash, extracting real hash..."
             if grep -q "got:" build-output.log; then
               VENDOR_HASH=$(grep "got:" build-output.log | sed 's/.*got: *//')
-              echo "Using vendorHash: ${VENDOR_HASH}"
+              echo "Updating vendorHash to: ${VENDOR_HASH}"
               
               # Update flake.nix with real hash
               sed -i "s|vendorHash = pkgs.lib.fakeHash;|vendorHash = \"${VENDOR_HASH}\";|" flake.nix
               
               # Test build with real hash
               nix build
+              echo "Build succeeded with correct vendorHash"
             else
-              echo "Failed to extract vendorHash"
+              echo "Failed to extract vendorHash from build output"
+              cat build-output.log
               exit 1
             fi
-          else
-            echo "Build succeeded with fake hash - unexpected"
-            exit 1
           fi
 
       - name: Run GoReleaser
