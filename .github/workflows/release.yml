@@ -37,14 +37,8 @@ jobs:
       - name: Run tests
         run: nix develop --command make test
 
-      - name: Create release branch for Nix build
+      - name: Verify Nix build
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
-          # Create temporary release branch
-          git checkout -b temp-release
-          
           # Calculate vendorHash - build should fail with fakeHash
           set +e  # Don't exit on build failure
           nix build --impure 2>&1 | tee build-output.log
@@ -57,20 +51,30 @@ jobs:
             echo "Build failed as expected with fakeHash, extracting real hash..."
             if grep -q "got:" build-output.log; then
               VENDOR_HASH=$(grep "got:" build-output.log | sed 's/.*got: *//')
-              echo "Updating vendorHash to: ${VENDOR_HASH}"
+              echo "Extracted vendorHash: ${VENDOR_HASH}"
               
-              # Update flake.nix with real hash
+              # Save vendorHash to temp file for later use
+              echo "${VENDOR_HASH}" > vendor-hash.txt
+              
+              # Update flake.nix with real hash temporarily
+              cp flake.nix flake.nix.bak
               sed -i "s|vendorHash = pkgs.lib.fakeHash;|vendorHash = \"${VENDOR_HASH}\";|" flake.nix
               
               # Test build with real hash
               nix build
               echo "Build succeeded with correct vendorHash"
+              
+              # Restore original flake.nix to keep git clean
+              mv flake.nix.bak flake.nix
             else
               echo "Failed to extract vendorHash from build output"
               cat build-output.log
               exit 1
             fi
           fi
+          
+          # Clean up all artifacts
+          rm -f build-output.log vendor-hash.txt
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
@@ -81,8 +85,3 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cleanup
-        if: always()
-        run: |
-          git checkout master || git checkout main
-          git branch -D temp-release || true
