@@ -1,6 +1,7 @@
-# compdef p
-# mostly from: https://github.com/ajeetdsouza/zoxide/blob/main/templates/zsh.txt
+# Zsh integration for project command
+# Based on zoxide patterns and zsh completion best practices
 
+# Helper functions
 function __project_pwd() {
     \builtin pwd -L
 }
@@ -9,6 +10,7 @@ function __project_cd() {
     \builtin cd -- "$@" && echo "switched to '$@'"
 }
 
+# Main project function
 function __project_p() {
     # shellcheck disable=SC2199
     if [[ "$#" -eq 0 ]]; then
@@ -18,15 +20,11 @@ function __project_p() {
             __project_cd "${OLDPWD}"
         else
             # shellcheck disable=SC2016
-            \builtin printf 'project: $OLDPWD is not set'
+            \builtin printf 'project: $OLDPWD is not set\n'
             return 1
         fi
     elif [[ "$#" -eq 1 ]] && [[ -d "$1" ]]; then
         __project_cd "$1"
-    # elif [[ "$@[-1]" == "${__project_z_prefix}"* ]]; then
-    #     # shellcheck disable=SC2124
-    #     \builtin local result="${@[-1]}"
-    #     __project_cd "{{ "${result:${#__project_z_prefix}}" }}"
     else
         \builtin local result
         # shellcheck disable=SC2312
@@ -35,41 +33,43 @@ function __project_p() {
     fi
 }
 
-# Completions.
-# Check if the Zsh Line Editor (zle) is available. 
-# If it's not, none of the rest of the code within this if statement block will execute.
-if [[ -o zle ]]; then
-    # Define completion function with menu behavior override
-    function __project_p_complete() {
-        [[ "{{ "${#words[@]}" }}" -eq "${CURRENT}" ]] || return 0
+# Completion function - following zsh best practices
+function _p() {
+    local curcontext="$curcontext" state line
+    typeset -A opt_args
 
-        \builtin local typed="${words[2,-1]}"
-        \builtin local IFS=$'\n'
-        \builtin local -a matches
-        matches=($(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- ${typed} 2>/dev/null))
-        
-        if [[ ${#matches[@]} -gt 0 ]]; then
-            # Enable menu complete for this session
-            \builtin local old_menu_complete
-            [[ -o MENU_COMPLETE ]] && old_menu_complete=1 || old_menu_complete=0
-            \builtin setopt MENU_COMPLETE
-            
-            _wanted projects expl 'project' compadd "${matches[@]}"
-            
-            # Restore previous setting
-            [[ $old_menu_complete -eq 0 ]] && \builtin unsetopt MENU_COMPLETE
-        fi
-
+    # Get what the user has typed so far
+    local query="${words[2,-1]}"
+    
+    # Get project completions
+    local -a projects
+    projects=($(\command {{.Exec}} query --limit 20 --exclude "$(__project_pwd)" -- ${query} 2>/dev/null))
+    
+    # Add completions if we have projects
+    if [[ ${#projects[@]} -gt 0 ]]; then
+        compadd -a projects
         return 0
-    }
+    fi
+    
+    return 1
+}
 
-    # Register completion function
-    [[ "${+functions[compdef]}" -ne 0 ]] && \compdef __project_p_complete p
+# Register completion function
+if [[ -n "${ZSH_VERSION-}" ]]; then
+    # Initialize completion system if not already done
+    if [[ ${+functions[compdef]} -eq 0 ]]; then
+        autoload -U compinit
+        compinit
+    fi
+    
+    # Register completion
+    compdef _p p
 fi
 
+# Create the p alias
 \builtin unalias p &>/dev/null || \builtin true
 \builtin alias p=__project_p
 
-# To initialize project, add this to your configuration (usually ~/.zshrc):
+# To initialize project completion, add this to your ~/.zshrc:
 #
 # eval "$(proj init zsh)"
