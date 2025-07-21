@@ -16,24 +16,16 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     
-    - name: Set up Go
-      uses: actions/setup-go@v5
-      with:
-        go-version: '1.23'
-    
     - name: Install Nix
       uses: cachix/install-nix-action@v24
       with:
         nix_path: nixpkgs=channel:nixos-unstable
     
-    - name: Run unit tests
-      run: make test
-    
-    - name: Run integration tests with Nix
-      run: make test-nix
+    - name: Run tests
+      run: nix develop --command make test
     
     - name: Generate coverage report
-      run: make test-coverage
+      run: nix develop --command make test-coverage
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
