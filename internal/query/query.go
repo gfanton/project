@@ -105,9 +105,9 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 
 			if qName == pName {
 				distance = 0
+			} else {
+				distance = fuzzy.RankMatchFold(qName, pName)
 			}
-
-			distance = fuzzy.RankMatchFold(qName, pName)
 		} else {
 
 			// TODO: improve this part to avoid multiple useless compare

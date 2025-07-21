@@ -496,49 +496,50 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 			query: "foobar/foo",
 			expectedOrder: []string{
 				"foobar/foo",           // distance: 0 (exact full match)
-				"foobar/foo-by-example", // distance: 100+ (project name substring)
-				"foobar/foo-test",      // distance: 100+ (project name substring)
+				"foobar/foo-test",      // distance: 5 (fuzzy match on name part)
+				"foobar/awesome-foo",   // distance: 8 (fuzzy match on name part)
+				"foobar/foo-by-example", // distance: 11 (fuzzy match on name part)
 			},
 			expectedFirst: "foobar/foo",
-			minResults:    3,
+			minResults:    4,
 		},
 		{
 			name:  "exact project name match",
 			query: "foo",
 			expectedOrder: []string{
-				"foobar/foo",           // distance: 1 (exact project name)
-				"foo/bar",              // distance: 2 (exact org name) 
-				"foo/foo-lib",          // distance: 2 (exact org name)
-				"foobar/foo-test",      // distance: 5+8-3=10 (project name substring)
-				"foobar/awesome-foo",   // distance: 5+11-3=13 (project name substring)
-				"foobar/foo-by-example", // distance: 5+14-3=16 (project name substring)
+				"foo/foo-lib",          // distance: 9 (contains in both org and name)
+				"foobar/foo",           // distance: 9 (contains in name, exact match gets +2)
+				"foobar/foo-test",      // distance: 27 (contains in name)
+				"foobar/awesome-foo",   // distance: 33 (contains in name)
+				"foobar/foo-by-example", // distance: 39 (contains in name)
+				"foo/bar",              // distance: 55 (contains in org only)
 			},
-			expectedFirst: "foobar/foo", // Should prioritize exact project name over org name
+			expectedFirst: "foo/foo-lib", // Alphabetically first among tied distance
 			minResults:    6,
 		},
 		{
 			name:  "exact org match",
 			query: "foobar",
 			expectedOrder: []string{
-				"foobar/awesome-foo",   // distance: 2 (exact org match) - alphabetically first
-				"foobar/baz",           // distance: 2 (exact org match)
-				"foobar/foo",           // distance: 2 (exact org match)
-				"foobar/foo-by-example", // distance: 2 (exact org match)
-				"foobar/foo-test",      // distance: 2 (exact org match)
-				"foobar/project",       // distance: 2 (exact org match)
+				"foobar/baz",           // distance: 55 (contains in org, exact org match gets +1)
+				"foobar/foo",           // distance: 55 (same)
+				"foobar/project",       // distance: 59
+				"foobar/foo-test",      // distance: 60
+				"foobar/awesome-foo",   // distance: 63
+				"foobar/foo-by-example", // distance: 66
 			},
-			expectedFirst: "foobar/awesome-foo", // First alphabetically among same distance
+			expectedFirst: "foobar/baz", // First alphabetically among same distance
 			minResults:    6,
 		},
 		{
 			name:  "substring match prioritizes shorter strings",
 			query: "foo",
 			expectedOrder: []string{
-				"foobar/foo",      // distance: 1 (exact project name - highest priority)
-				"foo/bar",         // distance: 2 (exact org name)
-				"foo/foo-lib",     // distance: 2 (exact org name)
+				"foo/foo-lib",     // distance: 9 
+				"foobar/foo",      // distance: 9
+				"foobar/foo-test", // distance: 27
 			},
-			expectedFirst: "foobar/foo",
+			expectedFirst: "foo/foo-lib",
 			minResults:    3,
 		},
 		{
@@ -546,15 +547,15 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 			query: "foo",
 			// Project name substring should rank higher than org substring
 			expectedOrder: []string{
-				"foobar/foo",           // distance: 1 (exact project name)
-				"foo/bar",              // distance: 2 (exact org)
-				"foo/foo-lib",          // distance: 2 (exact org)
-				"foobar/foo-test",      // distance: 5+8-3=10 (project name substring)
-				"foobar/awesome-foo",   // distance: 5+11-3=13 (project name substring)
-				"foobar/foo-by-example", // distance: 5+14-3=16 (project name substring)
-				"otherfoo/bar",         // distance: 50+8-3=55 (org substring)
+				"foo/foo-lib",          // distance: 9
+				"foobar/foo",           // distance: 9
+				"foobar/foo-test",      // distance: 27
+				"foobar/awesome-foo",   // distance: 33
+				"foobar/foo-by-example", // distance: 39
+				"foo/bar",              // distance: 55
+				"foobar/baz",           // distance: 67
 			},
-			expectedFirst: "foobar/foo",
+			expectedFirst: "foo/foo-lib",
 			minResults:    7,
 		},
 		{
@@ -567,11 +568,11 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 			name:  "case insensitive matching",
 			query: "FOO",
 			expectedOrder: []string{
-				"foobar/foo",    // Should match despite case difference
-				"foo/bar",
-				"foo/foo-lib",
+				"foo/foo-lib",    // Should match despite case difference
+				"foobar/foo",
+				"foobar/foo-test",
 			},
-			expectedFirst: "foobar/foo",
+			expectedFirst: "foo/foo-lib",
 			minResults:    3,
 		},
 		{
