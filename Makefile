@@ -1,4 +1,4 @@
-.PHONY: build install test lint clean tidy dev update-vendor-hash release
+.PHONY: build install test test-coverage test-shell test-integration test-tmux test-nix lint clean tidy dev update-vendor-hash release
 
 # Variables
 APP_NAME := proj
@@ -25,6 +25,33 @@ test:
 test-coverage:
 	go test -cover ./...
 
+# Run Go-based shell tests (similar to zoxide)
+test-shell:
+	go test -v ./internal/shell/
+
+# Run integration tests (BATS + Expect)
+test-integration:
+	@echo "Running integration tests..."
+	./tests/run_tests.sh
+
+# Run tmux unit tests with BATS
+test-tmux: build
+	@echo "Running tmux unit tests..."
+	@if command -v bats >/dev/null 2>&1; then \
+		if [[ -d tests/unit && $$(find tests/unit -name "*.bats" | wc -l) -gt 0 ]]; then \
+			bats tests/unit/; \
+		else \
+			echo "No BATS unit tests found in tests/unit/"; \
+		fi \
+	else \
+		echo "BATS not found. Install with: nix develop .#testing"; \
+		exit 1; \
+	fi
+
+# Run all tests in Nix environment
+test-nix:
+	nix develop .#testing --command bash -c "make test && make test-tmux"
+
 # Run linting
 lint:
 	go vet ./...
@@ -50,3 +77,31 @@ update-vendor-hash:
 release:
 	@echo "Use: ./scripts/release.sh <version>"
 	@echo "Example: ./scripts/release.sh v1.2.3"
+
+# Tmux integration testing targets  
+test-tmux-unit: build
+	@echo "Running tmux unit tests..."
+	@if command -v bats >/dev/null 2>&1; then \
+		bats tests/unit/; \
+	else \
+		echo "BATS not found. Use: nix develop .#testing"; \
+	fi
+
+# Nix-based testing targets
+test-nix-tmux:
+	@echo "Running tmux tests in Nix environment..."
+	nix build .#checks.$$(nix eval --impure --expr builtins.currentSystem).tmux-unit-tests -L
+
+# Help target for tmux testing
+help-tmux:
+	@echo "Tmux Integration Testing Targets:"
+	@echo "  test-tmux-unit         Run BATS unit tests for tmux integration"
+	@echo "  test-nix-tmux          Run tmux tests in Nix environment"
+	@echo ""
+	@echo "Development Environment:"
+	@echo "  nix develop .#testing  Enter testing environment with all tools"
+	@echo ""
+	@echo "Manual Testing:"
+	@echo "  bats tests/unit/       Run BATS tests manually"
+
+.PHONY: test-tmux-unit test-nix-tmux help-tmux

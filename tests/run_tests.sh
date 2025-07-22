@@ -24,10 +24,21 @@ make test
 # Run integration tests
 echo -e "\n${GREEN}Running shell integration tests...${NC}"
 
-# BATS tests
+# BATS unit tests for tmux integration
 if command -v bats >/dev/null 2>&1; then
-    echo "Running BATS tests..."
-    bats tests/integration/zsh_test.sh
+    echo "Running BATS unit tests..."
+    if [[ -d "tests/unit" && $(find tests/unit -name "*.bats" | wc -l) -gt 0 ]]; then
+        bats tests/unit/
+    else
+        echo "No BATS unit tests found in tests/unit/"
+    fi
+    
+    echo "Running BATS integration tests..."
+    if [[ -f "tests/integration/zsh_test.sh" ]]; then
+        bats tests/integration/zsh_test.sh
+    else
+        echo "zsh_test.sh not found, skipping"
+    fi
 else
     echo -e "${RED}BATS not found. Skipping BATS tests.${NC}"
 fi

@@ -81,7 +81,7 @@
           };
         };
 
-        # Development shell
+        # Development shells
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Go toolchain
@@ -127,6 +127,91 @@
           '';
         };
 
+        # Dedicated testing development shell for tmux integration
+        devShells.testing = pkgs.mkShell {
+          buildInputs = with pkgs; [
+            # Go toolchain
+            go_1_23
+            golangci-lint
+            gopls
+            
+            # Testing frameworks and tools
+            tmux
+            expect
+            bats
+            
+            # Shell environments
+            bash
+            bashInteractive
+            zsh
+            
+            # Development and testing utilities
+            gnumake
+            git
+            fzf
+            
+            # Additional testing utilities
+            procps  # for ps, needed by tmux testing
+            util-linux  # for script, timeout commands
+          ];
+          
+          shellHook = ''
+            echo "Tmux Integration Testing Environment"
+            echo "===================================="
+            echo "Tmux version: $(tmux -V)"
+            echo "BATS version: $(bats --version)"
+            echo "Expect version: $(expect -v | head -1)"
+            echo ""
+            
+            # Set up isolated tmux environment for testing
+            export TEST_TMUX_DIR=$(mktemp -d -t tmux-test-XXXXXX)
+            export TEST_TMUX_SOCKET="$TEST_TMUX_DIR/test-socket"
+            export TMUX_TMPDIR="$TEST_TMUX_DIR"
+            
+            # Prevent interference with user's tmux sessions
+            alias test-tmux='tmux -S $TEST_TMUX_SOCKET'
+            
+            # Test project directory setup
+            export TEST_PROJECT_DIR="$TEST_TMUX_DIR/projects"
+            mkdir -p "$TEST_PROJECT_DIR"
+            
+            # Build proj binary for testing if not exists
+            if [ ! -f "./build/proj" ]; then
+              echo "Building proj binary for testing..."
+              make build
+            fi
+            export PROJ_BINARY="$PWD/build/proj"
+            
+            echo "Testing environment ready!"
+            echo ""
+            echo "Environment variables:"
+            echo "  TEST_TMUX_DIR=$TEST_TMUX_DIR"
+            echo "  TEST_TMUX_SOCKET=$TEST_TMUX_SOCKET"
+            echo "  TEST_PROJECT_DIR=$TEST_PROJECT_DIR"
+            echo "  PROJ_BINARY=$PROJ_BINARY"
+            echo ""
+            echo "Available aliases:"
+            echo "  test-tmux    - Isolated tmux instance for testing"
+            echo ""
+            echo "Cleanup on exit will remove $TEST_TMUX_DIR"
+            echo ""
+            echo "Available test commands:"
+            echo "  bats tests/unit/           - Run BATS unit tests"
+            echo "  tests/run_tests.sh         - Run all tests"
+            echo "  make test-tmux             - Run tmux integration tests"
+            
+            # Cleanup function for exit
+            cleanup_test_env() {
+              echo "Cleaning up test environment..."
+              tmux -S "$TEST_TMUX_SOCKET" kill-server 2>/dev/null || true
+              rm -rf "$TEST_TMUX_DIR"
+            }
+            
+            # Register cleanup on exit
+            trap cleanup_test_env EXIT
+          '';
+        };
+
         # Apps for easy running
         apps.default = {
           type = "app";
@@ -137,8 +222,46 @@
         checks = {
           project-build = self.packages.${system}.project;
           
-          # Note: Shell integration tests require interactive environment
-          # Run them manually with `make test-integration` or `make test-nix`
+          # Basic tmux testing (non-interactive)
+          tmux-unit-tests = pkgs.stdenv.mkDerivation {
+            name = "tmux-unit-tests";
+            src = ./.;
+            
+            nativeBuildInputs = with pkgs; [
+              tmux
+              bats
+              bash
+              git
+              self.packages.${system}.project
+            ];
+            
+            buildPhase = ''
+              # Set up test environment
+              export TEST_TMUX_DIR=$(mktemp -d)
+              export TEST_TMUX_SOCKET="$TEST_TMUX_DIR/test-socket"
+              export TEST_PROJECT_DIR="$TEST_TMUX_DIR/projects"
+              export TMUX_TMPDIR="$TEST_TMUX_DIR"
+              export PROJ_BINARY="${self.packages.${system}.project}/bin/proj"
+              
+              # Run BATS unit tests
+              if [[ -d tests/unit && $(find tests/unit -name "*.bats" | wc -l) -gt 0 ]]; then
+                bats tests/unit/ || exit 1
+              fi
+              
+              # Cleanup
+              tmux -S "$TEST_TMUX_SOCKET" kill-server 2>/dev/null || true
+              rm -rf "$TEST_TMUX_DIR"
+            '';
+            
+            installPhase = ''
+              mkdir -p $out
+              echo "Tmux unit tests passed" > $out/test-results.txt
+            '';
+          };
+          
+          
+          # Note: Interactive shell integration tests require manual execution
+          # Run them with `nix develop .#testing` and then `bats tests/unit/`
         };
       }) // {
         # Overlay for use in other flakes
