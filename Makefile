@@ -1,4 +1,4 @@
-.PHONY: build install test lint clean tidy dev
+.PHONY: build install test lint clean tidy dev update-vendor-hash release
 
 # Variables
 APP_NAME := proj
@@ -41,3 +41,12 @@ tidy:
 # Development target - build and run
 dev: build
 	$(BUILD_DIR)/$(APP_NAME)
+
+# Update vendorHash in flake.nix with the correct hash
+update-vendor-hash:
+	@./scripts/update-vendor-hash.sh
+
+# Release target - calls release.sh
+release:
+	@echo "Use: ./scripts/release.sh <version>"
+	@echo "Example: ./scripts/release.sh v1.2.3"
