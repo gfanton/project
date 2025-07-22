@@ -51,6 +51,31 @@ command_exists() {
     command -v "$1" >/dev/null 2>&1
 }
 
+# Function to get the default remote name
+get_default_remote() {
+    # First try to get the remote for the current branch
+    local current_remote
+    current_remote=$(git config --get branch.$(git branch --show-current).remote 2>/dev/null || echo "")
+    
+    if [[ -n "$current_remote" ]]; then
+        echo "$current_remote"
+        return 0
+    fi
+    
+    # Fall back to the first remote (usually origin)
+    local first_remote
+    first_remote=$(git remote | head -n1)
+    
+    if [[ -n "$first_remote" ]]; then
+        echo "$first_remote"
+        return 0
+    fi
+    
+    # If no remotes found, return empty
+    echo ""
+    return 1
+}
+
 # Function to calculate vendorHash
 calculate_vendor_hash() {
     print_info "Calculating vendorHash..."
@@ -116,6 +141,15 @@ main() {
     
     print_info "Starting release process for $version"
     
+    # Get the default remote name
+    local remote_name
+    remote_name=$(get_default_remote)
+    if [[ -z "$remote_name" ]]; then
+        print_error "No git remote found. Please add a remote repository."
+        exit 1
+    fi
+    print_info "Using remote: $remote_name"
+    
     # Check prerequisites
     if ! command_exists git; then
         print_error "Git is required but not installed"
@@ -166,8 +200,8 @@ main() {
     print_success "Working directory is clean"
     
     # Pull latest changes
-    print_info "Pulling latest changes..."
-    git pull origin master
+    print_info "Pulling latest changes from $remote_name/master..."
+    git pull "$remote_name" master
     print_success "Updated with latest changes"
     
     # Run tests to ensure everything works
@@ -223,25 +257,33 @@ main() {
     
     # Ask for confirmation before pushing
     echo
-    print_warning "Ready to push release $version to origin."
+    print_warning "Ready to push release $version to $remote_name."
     print_info "This will trigger the CI/CD pipeline to build and publish the release."
     echo
     read -p "Do you want to push now? [y/N]: " -n 1 -r
     echo
     
     if [[ $REPLY =~ ^[Yy]$ ]]; then
-        print_info "Pushing commit and tag to origin..."
-        git push origin master
-        git push origin "$version"
+        print_info "Pushing commit and tag to $remote_name..."
+        git push "$remote_name" master
+        git push "$remote_name" "$version"
         
         print_success "🎉 Release $version has been pushed successfully!"
         print_info "CI/CD pipeline should start building the release now."
-        print_info "Check GitHub Actions: https://github.com/gfanton/project/actions"
+        
+        # Get repository URL for GitHub Actions link
+        local repo_url
+        repo_url=$(git remote get-url "$remote_name" 2>/dev/null || echo "")
+        if [[ "$repo_url" == *"github.com"* ]]; then
+            local repo_path
+            repo_path=$(echo "$repo_url" | sed -e 's/.*github\.com[/:]//' -e 's/\.git$//')
+            print_info "Check GitHub Actions: https://github.com/$repo_path/actions"
+        fi
     else
         print_warning "Release commit and tag created locally but not pushed."
         print_info "To push later, run:"
-        print_info "  git push origin master"
-        print_info "  git push origin $version"
+        print_info "  git push $remote_name master"
+        print_info "  git push $remote_name $version"
         print_info ""
         print_info "To undo the release (if not pushed yet):"
         print_info "  git tag -d $version"
