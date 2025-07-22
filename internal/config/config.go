@@ -1,8 +1,10 @@
 package config
 
 import (
+	"context"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"os"
 	"os/user"
@@ -63,17 +65,79 @@ func (c *Config) Load(args []string) error {
 
 // Logger creates a structured logger based on the debug configuration.
 func (c *Config) Logger() *slog.Logger {
-	opts := &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}
-
+	level := slog.LevelInfo
 	if c.Debug {
-		opts.Level = slog.LevelDebug
-		opts.AddSource = true
+		level = slog.LevelDebug
 	}
 
-	handler := slog.NewTextHandler(os.Stderr, opts)
+	handler := NewToolHandler(os.Stderr, level)
 	return slog.New(handler)
+}
+
+// ToolHandler is a custom slog handler optimized for CLI tools
+type ToolHandler struct {
+	writer io.Writer
+	level  slog.Level
+}
+
+// NewToolHandler creates a new tool-friendly handler
+func NewToolHandler(w io.Writer, level slog.Level) *ToolHandler {
+	return &ToolHandler{
+		writer: w,
+		level:  level,
+	}
+}
+
+// Enabled returns true if the handler should handle the given level
+func (h *ToolHandler) Enabled(_ context.Context, level slog.Level) bool {
+	return level >= h.level
+}
+
+// Handle formats and writes the log record
+func (h *ToolHandler) Handle(_ context.Context, r slog.Record) error {
+	var prefix string
+	switch r.Level {
+	case slog.LevelDebug:
+		prefix = "D: "
+	case slog.LevelInfo:
+		prefix = "" // No prefix for info messages
+	case slog.LevelWarn:
+		prefix = "!W: "
+	case slog.LevelError:
+		prefix = "ERROR: "
+	default:
+		prefix = ""
+	}
+
+	// Build the message
+	msg := prefix + r.Message
+
+	// Add attributes if any
+	if r.NumAttrs() > 0 {
+		var attrs []string
+		r.Attrs(func(a slog.Attr) bool {
+			attrs = append(attrs, fmt.Sprintf("%s=%v", a.Key, a.Value))
+			return true
+		})
+		if len(attrs) > 0 {
+			msg += " (" + strings.Join(attrs, " ") + ")"
+		}
+	}
+
+	_, err := fmt.Fprintln(h.writer, msg)
+	return err
+}
+
+// WithAttrs returns a new handler with the given attributes
+func (h *ToolHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
+	// For simplicity, we don't support persistent attributes in this tool handler
+	return h
+}
+
+// WithGroup returns a new handler with the given group name
+func (h *ToolHandler) WithGroup(name string) slog.Handler {
+	// For simplicity, we don't support groups in this tool handler
+	return h
 }
 
 // createFlagSet creates a flag set with the configuration options.

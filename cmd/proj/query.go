@@ -5,9 +5,11 @@ import (
 	"flag"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 
 	"github.com/gfanton/project/internal/config"
+	"github.com/gfanton/project/internal/project"
 	"github.com/gfanton/project/internal/query"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
@@ -80,13 +82,26 @@ func runQuery(ctx context.Context, logger *slog.Logger, cfg *config.Config, quer
 
 	queryService := query.NewService(logger, cfg.RootDir)
 
+	// Detect current project if query starts with ':' (workspace query without project prefix)
+	var currentProject *project.Project
+	if strings.HasPrefix(searchQuery, ":") {
+		wd, err := os.Getwd()
+		if err == nil {
+			if proj, err := project.FindFromPath(cfg.RootDir, wd); err == nil {
+				currentProject = proj
+				logger.Debug("detected current project for workspace query", "project", proj.String())
+			}
+		}
+	}
+
 	opts := query.Options{
-		Query:        searchQuery,
-		Exclude:      queryCfg.exclude,
-		AbsPath:      queryCfg.absPath,
-		Separator:    queryCfg.separator,
-		Limit:        queryCfg.limit,
-		ShowDistance: queryCfg.showDistance,
+		Query:          searchQuery,
+		Exclude:        queryCfg.exclude,
+		AbsPath:        queryCfg.absPath,
+		Separator:      queryCfg.separator,
+		Limit:          queryCfg.limit,
+		ShowDistance:   queryCfg.showDistance,
+		CurrentProject: currentProject,
 	}
 
 	results, err := queryService.Search(ctx, opts)

@@ -78,7 +78,7 @@ func TestRenderBasicStructure(t *testing.T) {
 	// Test that basic functions exist (without being overly prescriptive)
 	basicElements := []string{
 		"function __project_pwd()",
-		"function __project_cd()",  
+		"function __project_cd()",
 		"function __project_p()",
 		"function p()",
 		"function _p()",
@@ -155,4 +155,3 @@ func TestRenderSpecialCharacters(t *testing.T) {
 		t.Error("Template should handle paths with special characters")
 	}
 }
-

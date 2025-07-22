@@ -16,12 +16,13 @@ import (
 
 // Options holds configuration for project queries.
 type Options struct {
-	Query        string
-	Exclude      []string
-	AbsPath      bool
-	Separator    string
-	Limit        int
-	ShowDistance bool
+	Query          string
+	Exclude        []string
+	AbsPath        bool
+	Separator      string
+	Limit          int
+	ShowDistance   bool
+	CurrentProject *project.Project // When set, workspace queries without project prefix are limited to this project
 }
 
 // Result represents a search result.
@@ -33,16 +34,16 @@ type Result struct {
 
 // Service provides project querying functionality.
 type Service struct {
-	logger         *slog.Logger
-	rootDir        string
+	logger           *slog.Logger
+	rootDir          string
 	workspaceService *workspace.Service
 }
 
 // NewService creates a new query service.
 func NewService(logger *slog.Logger, rootDir string) *Service {
 	return &Service{
-		logger:         logger,
-		rootDir:        rootDir,
+		logger:           logger,
+		rootDir:          rootDir,
 		workspaceService: workspace.NewService(logger, rootDir),
 	}
 }
@@ -72,17 +73,17 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 
 	// Check if query contains workspace syntax (contains ':')
 	isWorkspaceQuery := strings.Contains(opts.Query, ":")
-	
+
 	if isWorkspaceQuery {
 		return s.searchWorkspaces(ctx, opts, excludeMap)
 	}
-	
+
 	return s.searchProjects(ctx, opts, excludeMap)
 }
 
 func (s *Service) searchProjects(ctx context.Context, opts Options, excludeMap map[string]bool) ([]*Result, error) {
 	var results []*Result
-	
+
 	qLower := strings.ToLower(opts.Query)
 	qOrg, qName, qHasOrg := strings.Cut(qLower, "/")
 
@@ -95,9 +96,9 @@ func (s *Service) searchProjects(ctx context.Context, opts Options, excludeMap m
 
 		if opts.Query == "" {
 			results = append(results, &Result{
-				Project:  p,
+				Project:   p,
 				Workspace: "",
-				Distance: 1,
+				Distance:  1,
 			})
 			return nil
 		}
@@ -145,9 +146,9 @@ func (s *Service) searchProjects(ctx context.Context, opts Options, excludeMap m
 		}
 
 		results = append(results, &Result{
-			Project:  p,
+			Project:   p,
 			Workspace: "",
-			Distance: distance,
+			Distance:  distance,
 		})
 
 		s.logger.Debug("found matching project",
@@ -167,12 +168,12 @@ func (s *Service) searchProjects(ctx context.Context, opts Options, excludeMap m
 
 func (s *Service) searchWorkspaces(ctx context.Context, opts Options, excludeMap map[string]bool) ([]*Result, error) {
 	var results []*Result
-	
+
 	// Parse workspace query: project_part:branch_part
 	projectPart, branchPart, _ := strings.Cut(opts.Query, ":")
 	projectPart = strings.TrimSpace(projectPart)
 	branchPart = strings.TrimSpace(branchPart)
-	
+
 	s.logger.Debug("searching workspaces", "projectPart", projectPart, "branchPart", branchPart)
 
 	err := project.Walk(s.rootDir, func(d fs.DirEntry, p *project.Project) error {
@@ -186,6 +187,12 @@ func (s *Service) searchWorkspaces(ctx context.Context, opts Options, excludeMap
 		if projectPart != "" {
 			projectName := strings.ToLower(p.String())
 			if !s.matchesProject(projectPart, projectName) {
+				return nil
+			}
+		} else if opts.CurrentProject != nil {
+			// If no project part specified but we have a current project context,
+			// only search within the current project
+			if p.Path != opts.CurrentProject.Path {
 				return nil
 			}
 		}
@@ -227,12 +234,12 @@ func (s *Service) searchWorkspaces(ctx context.Context, opts Options, excludeMap
 
 func (s *Service) matchesProject(query, projectName string) bool {
 	queryLower := strings.ToLower(query)
-	
+
 	// Exact match
 	if projectName == queryLower {
 		return true
 	}
-	
+
 	// Fuzzy match
 	return fuzzy.MatchFold(queryLower, projectName)
 }
@@ -240,29 +247,29 @@ func (s *Service) matchesProject(query, projectName string) bool {
 func (s *Service) matchesBranch(query, branchName string) bool {
 	queryLower := strings.ToLower(query)
 	branchLower := strings.ToLower(branchName)
-	
+
 	// Exact match
 	if branchLower == queryLower {
 		return true
 	}
-	
+
 	// Substring match
 	if strings.Contains(branchLower, queryLower) {
 		return true
 	}
-	
+
 	// Fuzzy match
 	return fuzzy.MatchFold(queryLower, branchName)
 }
 
 func (s *Service) calculateWorkspaceDistance(projectQuery, branchQuery, projectName, branchName string) int {
 	distance := 0
-	
+
 	// Project matching distance
 	if projectQuery != "" {
 		projectLower := strings.ToLower(projectName)
 		queryLower := strings.ToLower(projectQuery)
-		
+
 		if projectLower == queryLower {
 			distance += 0 // Exact match
 		} else if strings.Contains(projectLower, queryLower) {
@@ -271,12 +278,12 @@ func (s *Service) calculateWorkspaceDistance(projectQuery, branchQuery, projectN
 			distance += 50 + fuzzy.RankMatchFold(projectQuery, projectName) // Fuzzy match
 		}
 	}
-	
+
 	// Branch matching distance
 	if branchQuery != "" {
 		branchLower := strings.ToLower(branchName)
 		queryLower := strings.ToLower(branchQuery)
-		
+
 		if branchLower == queryLower {
 			distance += 0 // Exact match
 		} else if strings.Contains(branchLower, queryLower) {
@@ -285,7 +292,7 @@ func (s *Service) calculateWorkspaceDistance(projectQuery, branchQuery, projectN
 			distance += 20 + fuzzy.RankMatchFold(branchQuery, branchName) // Fuzzy match
 		}
 	}
-	
+
 	return distance
 }
 
@@ -334,11 +341,11 @@ func (s *Service) Format(results []*Result, opts Options) string {
 				path = result.Project.String()
 			}
 		}
-		
+
 		if opts.ShowDistance {
 			path += fmt.Sprintf(" - %d", result.Distance)
 		}
-		
+
 		return path
 	}
 

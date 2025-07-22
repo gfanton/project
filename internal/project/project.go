@@ -1,6 +1,7 @@
 package project
 
 import (
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
@@ -162,4 +163,43 @@ func Walk(rootDir string, fn WalkFunc) error {
 
 		return fn(d, project)
 	})
+}
+
+// FindFromPath finds a project from a given path by checking if it's within the root directory
+// and follows the organization/project structure.
+func FindFromPath(rootDir, path string) (*Project, error) {
+	absPath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	rootDir, err = filepath.Abs(rootDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get absolute root dir: %w", err)
+	}
+
+	if !strings.HasPrefix(absPath, rootDir) {
+		return nil, errors.New("path is not inside projects root directory")
+	}
+
+	relPath := strings.TrimPrefix(absPath, rootDir)
+	relPath = strings.TrimPrefix(relPath, string(os.PathSeparator))
+
+	if relPath == "" {
+		return nil, errors.New("path is the root directory")
+	}
+
+	parts := strings.Split(relPath, string(os.PathSeparator))
+	if len(parts) < 2 {
+		return nil, errors.New("path does not contain organization/project structure")
+	}
+
+	org := parts[0]
+	name := parts[1]
+
+	return &Project{
+		Path:         filepath.Join(rootDir, org, name),
+		Name:         name,
+		Organisation: org,
+	}, nil
 }

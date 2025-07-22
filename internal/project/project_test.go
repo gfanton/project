@@ -329,12 +329,12 @@ func TestWalkExcludesDotDirectories(t *testing.T) {
 	// Create test directory structure including dot directories
 	testStructure := []string{
 		"user1/project1",
-		"user2/project2", 
+		"user2/project2",
 		".workspace/user1/project1.feature", // Should be excluded
-		".vscode/settings",                   // Should be excluded  
-		".git/hooks",                         // Should be excluded
-		"user1/.hidden-project",              // Should be excluded
-		"user3/normal-project",               // Should be included
+		".vscode/settings",                  // Should be excluded
+		".git/hooks",                        // Should be excluded
+		"user1/.hidden-project",             // Should be excluded
+		"user3/normal-project",              // Should be included
 	}
 
 	for _, dir := range testStructure {
@@ -358,7 +358,7 @@ func TestWalkExcludesDotDirectories(t *testing.T) {
 
 	// Should only find normal projects, not those in dot directories
 	expectedProjects := []string{"user1/project1", "user2/project2", "user3/normal-project"}
-	
+
 	if len(foundProjects) != len(expectedProjects) {
 		t.Errorf("Expected %d projects, found %d", len(expectedProjects), len(foundProjects))
 		for i, p := range foundProjects {
@@ -425,5 +425,120 @@ func TestWalkWithCallbackError(t *testing.T) {
 
 	if !strings.Contains(err.Error(), expectedError) {
 		t.Errorf("Walk() error should contain callback error, got: %v", err)
+	}
+}
+
+func TestFindFromPath(t *testing.T) {
+	// Create temporary directory structure
+	tempDir, err := os.MkdirTemp("", "project-test-*")
+	if err != nil {
+		t.Fatalf("Failed to create temp dir: %v", err)
+	}
+	defer os.RemoveAll(tempDir)
+
+	// Create test projects
+	testProjects := []string{
+		"user1/project1",
+		"user2/project2",
+		"org/deep-project/subdirectory",
+	}
+
+	for _, project := range testProjects {
+		err := os.MkdirAll(filepath.Join(tempDir, project), 0755)
+		if err != nil {
+			t.Fatalf("Failed to create test directory: %v", err)
+		}
+	}
+
+	tests := []struct {
+		name        string
+		path        string
+		expected    *Project
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "find project from exact project path",
+			path: filepath.Join(tempDir, "user1/project1"),
+			expected: &Project{
+				Path:         filepath.Join(tempDir, "user1/project1"),
+				Name:         "project1",
+				Organisation: "user1",
+			},
+			expectError: false,
+		},
+		{
+			name: "find project from subdirectory",
+			path: filepath.Join(tempDir, "org/deep-project/subdirectory"),
+			expected: &Project{
+				Path:         filepath.Join(tempDir, "org/deep-project"),
+				Name:         "deep-project",
+				Organisation: "org",
+			},
+			expectError: false,
+		},
+		{
+			name:        "path outside root directory",
+			path:        "/tmp/outside",
+			expectError: true,
+			errorMsg:    "not inside projects root directory",
+		},
+		{
+			name:        "path is root directory",
+			path:        tempDir,
+			expectError: true,
+			errorMsg:    "path is the root directory",
+		},
+		{
+			name:        "path with only organization",
+			path:        filepath.Join(tempDir, "user1"),
+			expectError: true,
+			errorMsg:    "does not contain organization/project structure",
+		},
+		{
+			name: "relative path resolution",
+			path: filepath.Join(tempDir, "user1/project1/../../user2/project2"),
+			expected: &Project{
+				Path:         filepath.Join(tempDir, "user2/project2"),
+				Name:         "project2",
+				Organisation: "user2",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			project, err := FindFromPath(tempDir, tt.path)
+
+			if tt.expectError {
+				if err == nil {
+					t.Errorf("expected error but got none")
+					return
+				}
+				if tt.errorMsg != "" && !strings.Contains(err.Error(), tt.errorMsg) {
+					t.Errorf("expected error containing %q, got %q", tt.errorMsg, err.Error())
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if project == nil {
+				t.Fatal("expected project but got nil")
+			}
+
+			if project.Path != tt.expected.Path {
+				t.Errorf("path = %q, want %q", project.Path, tt.expected.Path)
+			}
+			if project.Name != tt.expected.Name {
+				t.Errorf("name = %q, want %q", project.Name, tt.expected.Name)
+			}
+			if project.Organisation != tt.expected.Organisation {
+				t.Errorf("organisation = %q, want %q", project.Organisation, tt.expected.Organisation)
+			}
+		})
 	}
 }

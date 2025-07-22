@@ -54,14 +54,14 @@ func (s *Service) Add(ctx context.Context, proj project.Project, branch string) 
 	// Try to create worktree with existing branch first
 	cmd := exec.CommandContext(ctx, "git", "worktree", "add", workspacePath, branch)
 	cmd.Dir = proj.Path
-	
+
 	if output, err := cmd.CombinedOutput(); err != nil {
 		// If branch doesn't exist, try creating it
 		s.logger.Debug("branch doesn't exist, creating new branch", "branch", branch, "error", err, "output", string(output))
-		
+
 		cmd = exec.CommandContext(ctx, "git", "worktree", "add", "-b", branch, workspacePath)
 		cmd.Dir = proj.Path
-		
+
 		if output, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("failed to create worktree with new branch: %w\nOutput: %s", err, string(output))
 		}
@@ -156,13 +156,13 @@ func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Work
 	if err != nil {
 		workspaceDir = s.WorkspaceDir()
 	}
-	
+
 	for _, ws := range workspaces {
 		wsPath := ws.Path
 		if evalPath, err := filepath.EvalSymlinks(ws.Path); err == nil {
 			wsPath = evalPath
 		}
-		
+
 		if strings.HasPrefix(wsPath, workspaceDir) {
 			filteredWorkspaces = append(filteredWorkspaces, ws)
 		}

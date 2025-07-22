@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"testing"
 
@@ -799,10 +800,10 @@ func TestQueryExcludesDotDirectories(t *testing.T) {
 	}{
 		{"user1/normal-project", true},
 		{"user2/another-project", true},
-		{".workspace/user1/project.feature", false},  // Should be excluded from project search
-		{".vscode/settings", false},                   // Should be excluded 
-		{".git/hooks", false},                         // Should be excluded
-		{"user1/.hidden-project", false},              // Should be excluded
+		{".workspace/user1/project.feature", false}, // Should be excluded from project search
+		{".vscode/settings", false},                 // Should be excluded
+		{".git/hooks", false},                       // Should be excluded
+		{"user1/.hidden-project", false},            // Should be excluded
 	}
 
 	for _, item := range testStructure {
@@ -849,7 +850,7 @@ func TestQueryExcludesDotDirectories(t *testing.T) {
 		if strings.Contains(projectName, "/.") || strings.HasPrefix(projectName, ".") {
 			t.Errorf("Found project in dot directory: %s", projectName)
 		}
-		
+
 		// Ensure the results are the expected normal projects
 		if projectName != "user1/normal-project" && projectName != "user2/another-project" {
 			t.Errorf("Unexpected project found: %s", projectName)
@@ -880,7 +881,7 @@ func TestWorkspaceFormat(t *testing.T) {
 				{Project: testProject, Workspace: "feature-auth", Distance: 0},
 				{Project: testProject, Workspace: "dev-branch", Distance: 5},
 			},
-			opts: Options{Separator: "\n"},
+			opts:     Options{Separator: "\n"},
 			expected: "user1/webapp:feature-auth\nuser1/webapp:dev-branch",
 		},
 		{
@@ -889,7 +890,7 @@ func TestWorkspaceFormat(t *testing.T) {
 				{Project: testProject, Workspace: "", Distance: 0},
 				{Project: testProject, Workspace: "feature-auth", Distance: 5},
 			},
-			opts: Options{Separator: "\n"},
+			opts:     Options{Separator: "\n"},
 			expected: "user1/webapp\nuser1/webapp:feature-auth",
 		},
 		{
@@ -897,7 +898,7 @@ func TestWorkspaceFormat(t *testing.T) {
 			results: []*Result{
 				{Project: testProject, Workspace: "feature-auth", Distance: 10},
 			},
-			opts: Options{Separator: "\n", ShowDistance: true},
+			opts:     Options{Separator: "\n", ShowDistance: true},
 			expected: "user1/webapp:feature-auth - 10",
 		},
 		{
@@ -905,7 +906,7 @@ func TestWorkspaceFormat(t *testing.T) {
 			results: []*Result{
 				{Project: testProject, Workspace: "feature-auth", Distance: 0},
 			},
-			opts: Options{Separator: "\n", AbsPath: true},
+			opts:     Options{Separator: "\n", AbsPath: true},
 			expected: tempDir + "/.workspace/user1/webapp.feature-auth",
 		},
 	}
@@ -918,4 +919,158 @@ func TestWorkspaceFormat(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestWorkspaceQueryWithCurrentProject(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping integration test in short mode")
+	}
+
+	tempDir, cleanup := setupTestProjects(t)
+	defer cleanup()
+
+	logger := slog.New(slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelWarn}))
+	service := NewService(logger, tempDir)
+	ctx := context.Background()
+
+	// Create projects
+	webappProject := &project.Project{
+		Path:         filepath.Join(tempDir, "user1", "webapp"),
+		Name:         "webapp",
+		Organisation: "user1",
+	}
+
+	mobileAppProject := &project.Project{
+		Path:         filepath.Join(tempDir, "user1", "mobile-app"),
+		Name:         "mobile-app",
+		Organisation: "user1",
+	}
+
+	backendProject := &project.Project{
+		Path:         filepath.Join(tempDir, "user2", "backend"),
+		Name:         "backend",
+		Organisation: "user2",
+	}
+
+	// Add workspaces to different projects
+	// webapp workspaces
+	_ = service.workspaceService.Add(ctx, *webappProject, "feature-branch")
+	_ = service.workspaceService.Add(ctx, *webappProject, "dev-workspace")
+	_ = service.workspaceService.Add(ctx, *webappProject, "main")
+
+	// mobile-app workspaces
+	_ = service.workspaceService.Add(ctx, *mobileAppProject, "feature-branch")
+	_ = service.workspaceService.Add(ctx, *mobileAppProject, "prod-workspace")
+
+	// backend workspaces
+	_ = service.workspaceService.Add(ctx, *backendProject, "feature-branch")
+	_ = service.workspaceService.Add(ctx, *backendProject, "staging")
+
+	tests := []struct {
+		name           string
+		query          string
+		currentProject *project.Project
+		expected       []string // Expected results in format "project:workspace"
+		description    string
+	}{
+		{
+			name:           "Workspace query without project prefix from webapp",
+			query:          ":feature",
+			currentProject: webappProject,
+			expected:       []string{"user1/webapp:feature-branch"},
+			description:    "Should only find feature-branch in current project (webapp)",
+		},
+		{
+			name:           "Workspace query without project prefix from mobile-app",
+			query:          ":feature",
+			currentProject: mobileAppProject,
+			expected:       []string{"user1/mobile-app:feature-branch"},
+			description:    "Should only find feature-branch in current project (mobile-app)",
+		},
+		{
+			name:           "Workspace query without project prefix from backend",
+			query:          ":feature",
+			currentProject: backendProject,
+			expected:       []string{"user2/backend:feature-branch"},
+			description:    "Should only find feature-branch in current project (backend)",
+		},
+		{
+			name:           "Workspace query without current project context",
+			query:          ":feature",
+			currentProject: nil,
+			expected:       []string{"user1/mobile-app:feature-branch", "user1/webapp:feature-branch", "user2/backend:feature-branch"},
+			description:    "Should find feature-branch across all projects when no current project",
+		},
+		{
+			name:           "Explicit project overrides current project",
+			query:          "user2/backend:feature",
+			currentProject: webappProject,
+			expected:       []string{"user2/backend:feature-branch"},
+			description:    "Explicit project in query should override current project context",
+		},
+		{
+			name:           "List all workspaces in current project",
+			query:          ":",
+			currentProject: webappProject,
+			expected:       []string{"user1/webapp:dev-workspace", "user1/webapp:feature-branch", "user1/webapp:main"},
+			description:    "Empty branch query should list all workspaces in current project",
+		},
+		{
+			name:           "Workspace not in current project",
+			query:          ":staging",
+			currentProject: webappProject,
+			expected:       []string{},
+			description:    "Should not find workspaces that don't exist in current project",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			results, err := service.Search(ctx, Options{
+				Query:          tt.query,
+				CurrentProject: tt.currentProject,
+				Separator:      "\n",
+			})
+
+			if err != nil {
+				t.Fatalf("Search() error = %v", err)
+			}
+
+			// Format results for comparison
+			actualResults := make([]string, len(results))
+			for i, result := range results {
+				if result.Workspace != "" {
+					actualResults[i] = result.Project.String() + ":" + result.Workspace
+				} else {
+					actualResults[i] = result.Project.String()
+				}
+			}
+
+			// Sort both expected and actual for comparison
+			sort.Strings(tt.expected)
+			sort.Strings(actualResults)
+
+			if len(actualResults) != len(tt.expected) {
+				t.Errorf("%s\nExpected %d results, got %d\nExpected: %v\nActual: %v",
+					tt.description, len(tt.expected), len(actualResults), tt.expected, actualResults)
+				return
+			}
+
+			for i, expected := range tt.expected {
+				if actualResults[i] != expected {
+					t.Errorf("%s\nResult[%d] = %s, want %s",
+						tt.description, i, actualResults[i], expected)
+				}
+			}
+		})
+	}
+
+	// Clean up workspaces
+	_ = service.workspaceService.Remove(ctx, *webappProject, "feature-branch", false)
+	_ = service.workspaceService.Remove(ctx, *webappProject, "dev-workspace", false)
+	_ = service.workspaceService.Remove(ctx, *webappProject, "main", false)
+	_ = service.workspaceService.Remove(ctx, *mobileAppProject, "feature-branch", false)
+	_ = service.workspaceService.Remove(ctx, *mobileAppProject, "prod-workspace", false)
+	_ = service.workspaceService.Remove(ctx, *backendProject, "feature-branch", false)
+	_ = service.workspaceService.Remove(ctx, *backendProject, "staging", false)
 }

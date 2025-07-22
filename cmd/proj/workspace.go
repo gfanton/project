@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/gfanton/project/internal/config"
 	"github.com/gfanton/project/internal/project"
@@ -170,39 +168,10 @@ func resolveProject(cfg *config.Config, projectStr string) (project.Project, err
 		return project.Project{}, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	proj, err := findProjectFromPath(cfg, wd)
+	proj, err := project.FindFromPath(cfg.RootDir, wd)
 	if err != nil {
 		return project.Project{}, fmt.Errorf("not inside a project directory and no project specified: %w", err)
 	}
 
-	return proj, nil
-}
-
-func findProjectFromPath(cfg *config.Config, path string) (project.Project, error) {
-	absPath, err := filepath.Abs(path)
-	if err != nil {
-		return project.Project{}, err
-	}
-
-	rootDir := cfg.RootDir
-	if !strings.HasPrefix(absPath, rootDir) {
-		return project.Project{}, errors.New("not inside projects root directory")
-	}
-
-	relPath := strings.TrimPrefix(absPath, rootDir)
-	relPath = strings.TrimPrefix(relPath, "/")
-
-	parts := strings.Split(relPath, "/")
-	if len(parts) < 2 {
-		return project.Project{}, errors.New("path does not contain organization/project structure")
-	}
-
-	org := parts[0]
-	name := parts[1]
-
-	return project.Project{
-		Path:         filepath.Join(rootDir, org, name),
-		Name:         name,
-		Organisation: org,
-	}, nil
+	return *proj, nil
 }
