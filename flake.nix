@@ -59,8 +59,8 @@
             cp ${./shell.nix} $out/share/doc/project/examples/shell.nix
             
             # Copy test scripts
-            cp ${./test-completion.sh} $out/share/doc/project/examples/test-completion.sh
-            cp ${./test-shell.sh} $out/share/doc/project/examples/test-shell.sh
+            cp ${./scripts/test-completion.sh} $out/share/doc/project/examples/test-completion.sh
+            cp ${./scripts/test-shell.sh} $out/share/doc/project/examples/test-shell.sh
             chmod +x $out/share/doc/project/examples/*.sh
           '';
 
