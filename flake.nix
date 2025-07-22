@@ -22,12 +22,12 @@
         
         packages.project = pkgs.buildGo123Module rec {
           pname = "project";
-          version = "0.1.0";
+          version = "0.12.0";
           
           src = ./.;
           
           # Use fakeHash for development, replaced with real hash during releases
-          vendorHash = pkgs.lib.fakeHash;
+          vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
 
           ldflags = [
             "-s"
