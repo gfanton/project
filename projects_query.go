@@ -1,55 +1,37 @@
-package query
+package projects
 
 import (
 	"context"
 	"fmt"
 	"io/fs"
-	"log/slog"
 	"path/filepath"
 	"sort"
 	"strings"
 
-	"projects/internal/project"
-	"projects/internal/workspace"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
-// Options holds configuration for project queries.
-type Options struct {
-	Query          string
-	Exclude        []string
-	AbsPath        bool
-	Separator      string
-	Limit          int
-	ShowDistance   bool
-	CurrentProject *project.Project // When set, workspace queries without project prefix are limited to this project
+// QueryService provides project querying functionality.
+type QueryService struct {
+	logger           Logger
+	projectService   *ProjectService
+	workspaceService *WorkspaceService
 }
 
-// Result represents a search result.
-type Result struct {
-	Project   *project.Project
-	Workspace string // Empty for project results, branch name for workspace results
-	Distance  int
-}
+// NewQueryService creates a new query service.
+func NewQueryService(config *Config, logger Logger) *QueryService {
+	projectSvc := NewProjectService(config, logger)
+	workspaceSvc := NewWorkspaceService(config, logger)
 
-// Service provides project querying functionality.
-type Service struct {
-	logger           *slog.Logger
-	rootDir          string
-	workspaceService *workspace.Service
-}
-
-// NewService creates a new query service.
-func NewService(logger *slog.Logger, rootDir string) *Service {
-	return &Service{
+	return &QueryService{
 		logger:           logger,
-		rootDir:          rootDir,
-		workspaceService: workspace.NewService(logger, rootDir),
+		projectService:   projectSvc,
+		workspaceService: workspaceSvc,
 	}
 }
 
 // Search searches for projects and workspaces matching the given options.
-func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
+func (s *QueryService) Search(ctx context.Context, opts SearchOptions) ([]*SearchResult, error) {
 	s.logger.Debug("searching projects and workspaces",
 		"query", opts.Query,
 		"exclude", opts.Exclude,
@@ -81,13 +63,13 @@ func (s *Service) Search(ctx context.Context, opts Options) ([]*Result, error) {
 	return s.searchProjects(ctx, opts, excludeMap)
 }
 
-func (s *Service) searchProjects(ctx context.Context, opts Options, excludeMap map[string]bool) ([]*Result, error) {
-	var results []*Result
+func (s *QueryService) searchProjects(ctx context.Context, opts SearchOptions, excludeMap map[string]bool) ([]*SearchResult, error) {
+	var results []*SearchResult
 
 	qLower := strings.ToLower(opts.Query)
 	qOrg, qName, qHasOrg := strings.Cut(qLower, "/")
 
-	err := project.Walk(s.rootDir, func(d fs.DirEntry, p *project.Project) error {
+	err := s.projectService.Walk(func(d fs.DirEntry, p *Project) error {
 		// Check if project should be excluded
 		if excludeMap[p.Path] {
 			s.logger.Debug("excluding project", "path", p.Path)
@@ -95,7 +77,7 @@ func (s *Service) searchProjects(ctx context.Context, opts Options, excludeMap m
 		}
 
 		if opts.Query == "" {
-			results = append(results, &Result{
+			results = append(results, &SearchResult{
 				Project:   p,
 				Workspace: "",
 				Distance:  1,
@@ -145,7 +127,7 @@ func (s *Service) searchProjects(ctx context.Context, opts Options, excludeMap m
 			}
 		}
 
-		results = append(results, &Result{
+		results = append(results, &SearchResult{
 			Project:   p,
 			Workspace: "",
 			Distance:  distance,
@@ -166,8 +148,8 @@ func (s *Service) searchProjects(ctx context.Context, opts Options, excludeMap m
 	return s.sortAndLimitResults(results, opts), nil
 }
 
-func (s *Service) searchWorkspaces(ctx context.Context, opts Options, excludeMap map[string]bool) ([]*Result, error) {
-	var results []*Result
+func (s *QueryService) searchWorkspaces(ctx context.Context, opts SearchOptions, excludeMap map[string]bool) ([]*SearchResult, error) {
+	var results []*SearchResult
 
 	// Parse workspace query: project_part:branch_part
 	projectPart, branchPart, _ := strings.Cut(opts.Query, ":")
@@ -176,7 +158,7 @@ func (s *Service) searchWorkspaces(ctx context.Context, opts Options, excludeMap
 
 	s.logger.Debug("searching workspaces", "projectPart", projectPart, "branchPart", branchPart)
 
-	err := project.Walk(s.rootDir, func(d fs.DirEntry, p *project.Project) error {
+	err := s.projectService.Walk(func(d fs.DirEntry, p *Project) error {
 		// Check if project should be excluded
 		if excludeMap[p.Path] {
 			s.logger.Debug("excluding project", "path", p.Path)
@@ -208,7 +190,7 @@ func (s *Service) searchWorkspaces(ctx context.Context, opts Options, excludeMap
 		for _, ws := range workspaces {
 			if branchPart == "" || s.matchesBranch(branchPart, ws.Branch) {
 				distance := s.calculateWorkspaceDistance(projectPart, branchPart, p.String(), ws.Branch)
-				results = append(results, &Result{
+				results = append(results, &SearchResult{
 					Project:   p,
 					Workspace: ws.Branch,
 					Distance:  distance,
@@ -232,7 +214,7 @@ func (s *Service) searchWorkspaces(ctx context.Context, opts Options, excludeMap
 	return s.sortAndLimitResults(results, opts), nil
 }
 
-func (s *Service) matchesProject(query, projectName string) bool {
+func (s *QueryService) matchesProject(query, projectName string) bool {
 	queryLower := strings.ToLower(query)
 
 	// Exact match
@@ -244,7 +226,7 @@ func (s *Service) matchesProject(query, projectName string) bool {
 	return fuzzy.MatchFold(queryLower, projectName)
 }
 
-func (s *Service) matchesBranch(query, branchName string) bool {
+func (s *QueryService) matchesBranch(query, branchName string) bool {
 	queryLower := strings.ToLower(query)
 	branchLower := strings.ToLower(branchName)
 
@@ -262,7 +244,7 @@ func (s *Service) matchesBranch(query, branchName string) bool {
 	return fuzzy.MatchFold(queryLower, branchName)
 }
 
-func (s *Service) calculateWorkspaceDistance(projectQuery, branchQuery, projectName, branchName string) int {
+func (s *QueryService) calculateWorkspaceDistance(projectQuery, branchQuery, projectName, branchName string) int {
 	distance := 0
 
 	// Project matching distance
@@ -296,7 +278,7 @@ func (s *Service) calculateWorkspaceDistance(projectQuery, branchQuery, projectN
 	return distance
 }
 
-func (s *Service) sortAndLimitResults(results []*Result, opts Options) []*Result {
+func (s *QueryService) sortAndLimitResults(results []*SearchResult, opts SearchOptions) []*SearchResult {
 	// Sort by distance (lower is better), then by project name, then by workspace
 	sort.Slice(results, func(i, j int) bool {
 		if results[i].Distance == results[j].Distance {
@@ -318,12 +300,12 @@ func (s *Service) sortAndLimitResults(results []*Result, opts Options) []*Result
 }
 
 // Format formats the search results according to the options.
-func (s *Service) Format(results []*Result, opts Options) string {
+func (s *QueryService) Format(results []*SearchResult, opts SearchOptions) string {
 	if len(results) == 0 {
 		return ""
 	}
 
-	getPath := func(result *Result) string {
+	getPath := func(result *SearchResult) string {
 		var path string
 		if opts.AbsPath {
 			if result.Workspace != "" {

@@ -8,9 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/gfanton/project/internal/config"
-	"github.com/gfanton/project/internal/project"
-	"github.com/gfanton/project/internal/query"
+	"projects/internal/config"
+	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
@@ -39,7 +38,7 @@ func (e excludeValue) String() string {
 	return strings.Join(*e.values, ",")
 }
 
-func newQueryCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
+func newQueryCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
 	var queryCfg queryConfig
 
 	fs := flag.NewFlagSet("query", flag.ExitOnError)
@@ -72,29 +71,30 @@ Examples:
   proj query :dev`,
 		FlagSet: fs,
 		Exec: func(ctx context.Context, args []string) error {
-			return runQuery(ctx, logger, cfg, queryCfg, args)
+			return runQuery(ctx, logger, cfg, projectsCfg, projectsLogger, queryCfg, args)
 		},
 	}
 }
 
-func runQuery(ctx context.Context, logger *slog.Logger, cfg *config.Config, queryCfg queryConfig, args []string) error {
+func runQuery(ctx context.Context, logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger, queryCfg queryConfig, args []string) error {
 	searchQuery := strings.Join(args, " ")
 
-	queryService := query.NewService(logger, cfg.RootDir)
+	queryService := projects.NewQueryService(projectsCfg, projectsLogger)
+	projectService := projects.NewProjectService(projectsCfg, projectsLogger)
 
 	// Detect current project if query starts with ':' (workspace query without project prefix)
-	var currentProject *project.Project
+	var currentProject *projects.Project
 	if strings.HasPrefix(searchQuery, ":") {
 		wd, err := os.Getwd()
 		if err == nil {
-			if proj, err := project.FindFromPath(cfg.RootDir, wd); err == nil {
+			if proj, err := projectService.FindFromPath(wd); err == nil {
 				currentProject = proj
 				logger.Debug("detected current project for workspace query", "project", proj.String())
 			}
 		}
 	}
 
-	opts := query.Options{
+	opts := projects.SearchOptions{
 		Query:          searchQuery,
 		Exclude:        queryCfg.exclude,
 		AbsPath:        queryCfg.absPath,

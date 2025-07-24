@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gfanton/project/internal/project"
+	"projects/internal/project"
 	"github.com/go-git/go-git/v5"
 )
 

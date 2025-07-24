@@ -1,44 +1,40 @@
-package workspace
+package projects
 
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
-
-	"projects/internal/project"
 )
 
-type Service struct {
-	logger      *slog.Logger
-	projectRoot string
+// WorkspaceService provides workspace operations.
+type WorkspaceService struct {
+	logger Logger
+	config *Config
 }
 
-type Workspace struct {
-	Project project.Project
-	Branch  string
-	Path    string
-}
-
-func NewService(logger *slog.Logger, projectRoot string) *Service {
-	return &Service{
-		logger:      logger,
-		projectRoot: projectRoot,
+// NewWorkspaceService creates a new workspace service.
+func NewWorkspaceService(config *Config, logger Logger) *WorkspaceService {
+	return &WorkspaceService{
+		logger: logger,
+		config: config,
 	}
 }
 
-func (s *Service) WorkspaceDir() string {
-	return filepath.Join(s.projectRoot, ".workspace")
+// WorkspaceDir returns the directory where workspaces are stored.
+func (s *WorkspaceService) WorkspaceDir() string {
+	return filepath.Join(s.config.RootDir, ".workspace")
 }
 
-func (s *Service) WorkspacePath(proj project.Project, branch string) string {
+// WorkspacePath returns the path for a specific workspace.
+func (s *WorkspaceService) WorkspacePath(proj Project, branch string) string {
 	return filepath.Join(s.WorkspaceDir(), proj.Organisation, fmt.Sprintf("%s.%s", proj.Name, branch))
 }
 
-func (s *Service) Add(ctx context.Context, proj project.Project, branch string) error {
+// Add creates a new workspace for the given project and branch.
+func (s *WorkspaceService) Add(ctx context.Context, proj Project, branch string) error {
 	s.logger.Debug("adding workspace", "project", proj.Name, "org", proj.Organisation, "branch", branch)
 
 	workspacePath := s.WorkspacePath(proj, branch)
@@ -73,7 +69,8 @@ func (s *Service) Add(ctx context.Context, proj project.Project, branch string) 
 	return nil
 }
 
-func (s *Service) Remove(ctx context.Context, proj project.Project, branch string, deleteBranch bool) error {
+// Remove removes a workspace for the given project and branch.
+func (s *WorkspaceService) Remove(ctx context.Context, proj Project, branch string, deleteBranch bool) error {
 	s.logger.Debug("removing workspace", "project", proj.Name, "org", proj.Organisation, "branch", branch, "deleteBranch", deleteBranch)
 
 	workspacePath := s.WorkspacePath(proj, branch)
@@ -106,7 +103,8 @@ func (s *Service) Remove(ctx context.Context, proj project.Project, branch strin
 	return nil
 }
 
-func (s *Service) List(ctx context.Context, proj project.Project) ([]Workspace, error) {
+// List returns all workspaces for the given project.
+func (s *WorkspaceService) List(ctx context.Context, proj Project) ([]Workspace, error) {
 	s.logger.Debug("listing workspaces", "project", proj.Name, "org", proj.Organisation)
 
 	cmd := exec.CommandContext(ctx, "git", "worktree", "list", "--porcelain")
@@ -120,7 +118,7 @@ func (s *Service) List(ctx context.Context, proj project.Project) ([]Workspace, 
 	return s.parseWorktreeList(proj, string(output))
 }
 
-func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Workspace, error) {
+func (s *WorkspaceService) parseWorktreeList(proj Project, output string) ([]Workspace, error) {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	var workspaces []Workspace
 	var currentWorkspace *Workspace

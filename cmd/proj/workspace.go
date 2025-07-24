@@ -8,13 +8,12 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/gfanton/project/internal/config"
-	"github.com/gfanton/project/internal/project"
-	"github.com/gfanton/project/internal/workspace"
+	"projects/internal/config"
+	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
-func newWorkspaceCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
+func newWorkspaceCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "workspace",
 		ShortUsage: "workspace <subcommand>",
@@ -31,9 +30,9 @@ Commands:
 When inside a project directory, the project parameter is optional.
 When outside a project directory, the project parameter is required.`,
 		Subcommands: []*ffcli.Command{
-			newWorkspaceAddCommand(logger, cfg),
-			newWorkspaceRemoveCommand(logger, cfg),
-			newWorkspaceListCommand(logger, cfg),
+			newWorkspaceAddCommand(logger, cfg, projectsCfg, projectsLogger),
+			newWorkspaceRemoveCommand(logger, cfg, projectsCfg, projectsLogger),
+			newWorkspaceListCommand(logger, cfg, projectsCfg, projectsLogger),
 		},
 		Exec: func(ctx context.Context, args []string) error {
 			return flag.ErrHelp
@@ -41,7 +40,7 @@ When outside a project directory, the project parameter is required.`,
 	}
 }
 
-func newWorkspaceAddCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
+func newWorkspaceAddCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "add",
 		ShortUsage: "workspace add <branch> [project]",
@@ -61,18 +60,18 @@ If the project parameter is not provided, the current directory must be inside a
 				projectStr = args[1]
 			}
 
-			proj, err := resolveProject(cfg, projectStr)
+			proj, err := resolveProject(projectsCfg, projectsLogger, projectStr)
 			if err != nil {
 				return err
 			}
 
-			svc := workspace.NewService(logger, cfg.RootDir)
-			return svc.Add(ctx, proj, branch)
+			svc := projects.NewWorkspaceService(projectsCfg, projectsLogger)
+			return svc.Add(ctx, *proj, branch)
 		},
 	}
 }
 
-func newWorkspaceRemoveCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
+func newWorkspaceRemoveCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
 	var removeCfg struct {
 		deleteBranch bool
 	}
@@ -103,18 +102,18 @@ FLAGS
 				projectStr = args[1]
 			}
 
-			proj, err := resolveProject(cfg, projectStr)
+			proj, err := resolveProject(projectsCfg, projectsLogger, projectStr)
 			if err != nil {
 				return err
 			}
 
-			svc := workspace.NewService(logger, cfg.RootDir)
-			return svc.Remove(ctx, proj, branch, removeCfg.deleteBranch)
+			svc := projects.NewWorkspaceService(projectsCfg, projectsLogger)
+			return svc.Remove(ctx, *proj, branch, removeCfg.deleteBranch)
 		},
 	}
 }
 
-func newWorkspaceListCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
+func newWorkspaceListCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "list",
 		ShortUsage: "workspace list [project]",
@@ -128,13 +127,13 @@ If the project parameter is not provided, the current directory must be inside a
 				projectStr = args[0]
 			}
 
-			proj, err := resolveProject(cfg, projectStr)
+			proj, err := resolveProject(projectsCfg, projectsLogger, projectStr)
 			if err != nil {
 				return err
 			}
 
-			svc := workspace.NewService(logger, cfg.RootDir)
-			workspaces, err := svc.List(ctx, proj)
+			svc := projects.NewWorkspaceService(projectsCfg, projectsLogger)
+			workspaces, err := svc.List(ctx, *proj)
 			if err != nil {
 				return err
 			}
@@ -154,24 +153,26 @@ If the project parameter is not provided, the current directory must be inside a
 	}
 }
 
-func resolveProject(cfg *config.Config, projectStr string) (project.Project, error) {
+func resolveProject(projectsCfg *projects.Config, projectsLogger projects.Logger, projectStr string) (*projects.Project, error) {
+	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
+	
 	if projectStr != "" {
-		proj, err := project.ParseProject(cfg.RootDir, cfg.RootUser, projectStr)
+		proj, err := projectSvc.ParseProject(projectStr)
 		if err != nil {
-			return project.Project{}, err
+			return nil, err
 		}
-		return *proj, nil
+		return proj, nil
 	}
 
 	wd, err := os.Getwd()
 	if err != nil {
-		return project.Project{}, fmt.Errorf("failed to get working directory: %w", err)
+		return nil, fmt.Errorf("failed to get working directory: %w", err)
 	}
 
-	proj, err := project.FindFromPath(cfg.RootDir, wd)
+	proj, err := projectSvc.FindFromPath(wd)
 	if err != nil {
-		return project.Project{}, fmt.Errorf("not inside a project directory and no project specified: %w", err)
+		return nil, fmt.Errorf("not inside a project directory and no project specified: %w", err)
 	}
 
-	return *proj, nil
+	return proj, nil
 }

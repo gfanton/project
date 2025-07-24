@@ -4,27 +4,37 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/gfanton/project/internal/config"
-	"github.com/gfanton/project/internal/project"
+	"projects"
 )
+
+// mockLogger implements projects.Logger for testing
+type mockLogger struct{}
+
+func (m *mockLogger) Debug(msg string, args ...any) {}
+func (m *mockLogger) Info(msg string, args ...any)  {}
+func (m *mockLogger) Warn(msg string, args ...any)  {}
+func (m *mockLogger) Error(msg string, args ...any) {}
 
 func TestResolveProject(t *testing.T) {
 	tempDir := t.TempDir()
-	cfg := &config.Config{
+	
+	projectsCfg := &projects.Config{
 		RootDir:  tempDir,
 		RootUser: "testuser",
 	}
+	
+	logger := &mockLogger{}
 
 	tests := []struct {
 		name        string
 		projectStr  string
 		expectedErr bool
-		expected    project.Project
+		expected    projects.Project
 	}{
 		{
 			name:       "explicit project with org",
 			projectStr: "testorg/testproject",
-			expected: project.Project{
+			expected: projects.Project{
 				Name:         "testproject",
 				Organisation: "testorg",
 				Path:         filepath.Join(tempDir, "testorg", "testproject"),
@@ -33,7 +43,7 @@ func TestResolveProject(t *testing.T) {
 		{
 			name:       "explicit project without org",
 			projectStr: "testproject",
-			expected: project.Project{
+			expected: projects.Project{
 				Name:         "testproject",
 				Organisation: "testuser",
 				Path:         filepath.Join(tempDir, "testuser", "testproject"),
@@ -48,7 +58,7 @@ func TestResolveProject(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			proj, err := resolveProject(cfg, tt.projectStr)
+			proj, err := resolveProject(projectsCfg, logger, tt.projectStr)
 
 			if tt.expectedErr {
 				if err == nil {
@@ -73,20 +83,23 @@ func TestResolveProject(t *testing.T) {
 
 func TestFindProjectFromPath(t *testing.T) {
 	tempDir := t.TempDir()
-	cfg := &config.Config{
+	projectsCfg := &projects.Config{
 		RootDir: tempDir,
 	}
+	
+	logger := &mockLogger{}
+	projectSvc := projects.NewProjectService(projectsCfg, logger)
 
 	tests := []struct {
 		name        string
 		path        string
 		expectedErr bool
-		expected    project.Project
+		expected    projects.Project
 	}{
 		{
 			name: "valid project path",
 			path: filepath.Join(tempDir, "testorg", "testproject"),
-			expected: project.Project{
+			expected: projects.Project{
 				Name:         "testproject",
 				Organisation: "testorg",
 				Path:         filepath.Join(tempDir, "testorg", "testproject"),
@@ -95,7 +108,7 @@ func TestFindProjectFromPath(t *testing.T) {
 		{
 			name: "nested project path",
 			path: filepath.Join(tempDir, "testorg", "testproject", "subdir"),
-			expected: project.Project{
+			expected: projects.Project{
 				Name:         "testproject",
 				Organisation: "testorg",
 				Path:         filepath.Join(tempDir, "testorg", "testproject"),
@@ -115,7 +128,7 @@ func TestFindProjectFromPath(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			proj, err := project.FindFromPath(cfg.RootDir, tt.path)
+			proj, err := projectSvc.FindFromPath(tt.path)
 
 			if tt.expectedErr {
 				if err == nil {

@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/gfanton/project/internal/config"
-	"github.com/gfanton/project/internal/git"
-	"github.com/gfanton/project/internal/project"
+	"projects/internal/config"
+	"projects/internal/git"
+	"projects/internal/project"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 

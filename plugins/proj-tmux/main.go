@@ -16,6 +16,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
+	// Load configuration using existing config system
 	cfg, err := config.NewConfig()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "error: failed to create config: %v\n", err)
@@ -28,7 +29,7 @@ func main() {
 	}
 
 	logger := cfg.Logger()
-	
+
 	// Create projects config and services
 	projectsCfg := &projects.Config{
 		ConfigFile: cfg.ConfigFile,
@@ -39,24 +40,25 @@ func main() {
 	projectsLogger := projects.NewSlogAdapter(logger)
 
 	root := &ffcli.Command{
-		Name:       "proj",
-		ShortUsage: "proj [flags] <subcommand>",
-		ShortHelp:  "A tool for managing Git projects in GitHub-style directory structure",
-		LongHelp: `proj is a command-line tool for managing Git projects organized in a GitHub-style
-directory structure. It provides fast project navigation, creation, and management.
+		Name:       "proj-tmux",
+		ShortUsage: "proj-tmux [flags] <subcommand>",
+		ShortHelp:  "Tmux integration for proj - session and workspace management",
+		LongHelp: `proj-tmux provides tmux session and workspace management for proj.
 
-Use 'proj <subcommand> -h' for more information about a specific command.`,
-		FlagSet: flag.NewFlagSet("proj", flag.ContinueOnError),
+This binary is designed to be called from tmux key bindings and plugins.
+It integrates with the project management system to provide seamless
+tmux session and workspace operations.
+
+Use 'proj-tmux <subcommand> -h' for more information about a specific command.`,
+		FlagSet: flag.NewFlagSet("proj-tmux", flag.ContinueOnError),
 		Exec: func(ctx context.Context, args []string) error {
 			return flag.ErrHelp
 		},
 		Subcommands: []*ffcli.Command{
-			newInitCommand(logger, cfg),
-			newListCommand(logger, cfg, projectsCfg, projectsLogger),
-			newNewCommand(logger, cfg),
-			newGetCommand(logger, cfg),
-			newQueryCommand(logger, cfg, projectsCfg, projectsLogger),
-			newWorkspaceCommand(logger, cfg, projectsCfg, projectsLogger),
+			newSessionCommand(logger, projectsCfg, projectsLogger),
+			newWindowCommand(logger, projectsCfg, projectsLogger),
+			newSwitchCommand(logger, projectsCfg, projectsLogger),
+			newStatusCommand(logger, projectsCfg, projectsLogger),
 		},
 	}
 

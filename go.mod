@@ -1,4 +1,4 @@
-module github.com/gfanton/project
+module projects
 
 go 1.23.0
 

@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"github.com/gfanton/project/internal/config"
-	"github.com/gfanton/project/internal/project"
+	"projects/internal/config"
+	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
@@ -17,7 +17,7 @@ type listConfig struct {
 	all bool
 }
 
-func newListCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
+func newListCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
 	var listCfg listConfig
 
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
@@ -38,13 +38,15 @@ By default, only Git repositories are shown. Use --all to show all directories.`
 			if len(args) > 0 {
 				prefix = args[0]
 			}
-			return runList(ctx, logger, cfg, listCfg, prefix)
+			return runList(ctx, logger, projectsCfg, projectsLogger, listCfg, prefix)
 		},
 	}
 }
 
-func runList(ctx context.Context, logger *slog.Logger, cfg *config.Config, listCfg listConfig, prefix string) error {
-	return project.Walk(cfg.RootDir, func(d fs.DirEntry, p *project.Project) error {
+func runList(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, listCfg listConfig, prefix string) error {
+	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
+	
+	return projectSvc.Walk(func(d fs.DirEntry, p *projects.Project) error {
 		// Skip if prefix is provided and project doesn't match
 		if prefix != "" && !hasPrefix(p.String(), prefix) {
 			return nil
@@ -53,7 +55,7 @@ func runList(ctx context.Context, logger *slog.Logger, cfg *config.Config, listC
 		status := p.GetGitStatus()
 
 		// Skip non-Git directories unless --all is specified
-		if status == project.GitStatusNotGit && !listCfg.all {
+		if status == projects.GitStatusNotGit && !listCfg.all {
 			return nil
 		}
 
