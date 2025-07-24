@@ -1,4 +1,4 @@
-.PHONY: build build-tmux install test test-coverage test-shell test-integration test-tmux test-nix lint clean tidy dev update-vendor-hash release
+.PHONY: build build-tmux install test test-coverage test-shell test-integration test-tmux test-nix test-plugin lint clean tidy dev update-vendor-hash release
 
 # Variables
 APP_NAME := proj
@@ -118,6 +118,11 @@ help-tmux:
 	@echo "  install-all            Install both binaries to GOBIN"
 	@echo "  test-tmux-unit         Run BATS unit tests for tmux integration"
 	@echo "  test-nix-tmux          Run tmux tests in Nix environment"
+	@echo "  test-plugin            Test tmux plugin structure and installation"
+	@echo ""
+	@echo "Plugin Structure:"
+	@echo "  plugins/proj-tmux/plugin/  - Main tmux plugin directory"
+	@echo "  project.tmux               - TPM entry point"
 	@echo ""
 	@echo "Development Environment:"
 	@echo "  nix develop .#testing  Enter testing environment with all tools"
@@ -125,4 +130,23 @@ help-tmux:
 	@echo "Manual Testing:"
 	@echo "  bats tests/unit/       Run BATS tests manually"
 
-.PHONY: build-tmux build-all install-tmux install-all test-tmux-unit test-nix-tmux help-tmux
+# Test tmux plugin installation
+test-plugin: build-all
+	@echo "Testing tmux plugin installation..."
+	@if ! command -v tmux >/dev/null 2>&1; then \
+		echo "Error: tmux not found"; \
+		exit 1; \
+	fi
+	@echo "Plugin structure:"
+	@ls -la plugins/proj-tmux/plugin/
+	@echo "Plugin scripts:"
+	@ls -la plugins/proj-tmux/plugin/scripts/
+	@echo "Plugin executable permissions:"
+	@ls -la plugins/proj-tmux/plugin/proj-tmux.tmux plugins/proj-tmux/plugin/scripts/*.sh
+	@echo ""
+	@echo "To test manually:"
+	@echo "  1. Add to ~/.tmux.conf: run-shell '$(PWD)/plugins/proj-tmux/plugin/proj-tmux.tmux'"
+	@echo "  2. Or use TPM: set -g @plugin '$(shell basename $(PWD))'"
+	@echo "  3. Reload tmux: tmux source-file ~/.tmux.conf"
+
+.PHONY: build-tmux build-all install-tmux install-all test-tmux-unit test-nix-tmux test-plugin help-tmux
