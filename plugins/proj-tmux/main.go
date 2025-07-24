@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"projects/internal/config"
-	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"projects"
+	"projects/internal/config"
 )
 
 func main() {

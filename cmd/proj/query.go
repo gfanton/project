@@ -8,9 +8,9 @@ import (
 	"os"
 	"strings"
 
-	"projects/internal/config"
-	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"projects"
+	"projects/internal/config"
 )
 
 type queryConfig struct {

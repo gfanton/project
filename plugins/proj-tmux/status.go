@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"projects"
 )
 
 func newStatusCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
@@ -76,7 +76,7 @@ func runStatus(ctx context.Context, logger *slog.Logger, projectsCfg *projects.C
 		if projectStr := extractProjectFromSession(currentSession); projectStr != "" {
 			if proj, err := projectSvc.ParseProject(projectStr); err == nil {
 				currentProject = proj
-				
+
 				// Check if current window corresponds to a workspace
 				if currentWindow != "" && currentWindow != "0" {
 					workspaces, err := workspaceSvc.List(ctx, *currentProject)

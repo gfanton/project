@@ -7,8 +7,8 @@ import (
 	"log/slog"
 	"strings"
 
-	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"projects"
 )
 
 func newSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {

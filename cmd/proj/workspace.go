@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"os"
 
-	"projects/internal/config"
-	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"projects"
+	"projects/internal/config"
 )
 
 func newWorkspaceCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
@@ -155,7 +155,7 @@ If the project parameter is not provided, the current directory must be inside a
 
 func resolveProject(projectsCfg *projects.Config, projectsLogger projects.Logger, projectStr string) (*projects.Project, error) {
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
-	
+
 	if projectStr != "" {
 		proj, err := projectSvc.ParseProject(projectStr)
 		if err != nil {

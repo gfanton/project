@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"projects"
 )
 
 func newSessionCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
@@ -245,7 +245,7 @@ func extractProjectFromSession(sessionName string) string {
 
 	// Remove "proj-" prefix
 	remainder := strings.TrimPrefix(sessionName, "proj-")
-	
+
 	// Split by "-" and try to reconstruct org/name
 	parts := strings.Split(remainder, "-")
 	if len(parts) < 2 {
@@ -255,6 +255,6 @@ func extractProjectFromSession(sessionName string) string {
 	// Simple heuristic: assume last part is name, everything before is org
 	name := parts[len(parts)-1]
 	org := strings.Join(parts[:len(parts)-1], "-")
-	
+
 	return fmt.Sprintf("%s/%s", org, name)
 }

@@ -17,12 +17,12 @@ func (m *mockLogger) Error(msg string, args ...any) {}
 
 func TestResolveProject(t *testing.T) {
 	tempDir := t.TempDir()
-	
+
 	projectsCfg := &projects.Config{
 		RootDir:  tempDir,
 		RootUser: "testuser",
 	}
-	
+
 	logger := &mockLogger{}
 
 	tests := []struct {
@@ -86,7 +86,7 @@ func TestFindProjectFromPath(t *testing.T) {
 	projectsCfg := &projects.Config{
 		RootDir: tempDir,
 	}
-	
+
 	logger := &mockLogger{}
 	projectSvc := projects.NewProjectService(projectsCfg, logger)
 

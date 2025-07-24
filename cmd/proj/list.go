@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"strings"
 
-	"projects/internal/config"
-	"projects"
 	"github.com/peterbourgon/ff/v3/ffcli"
+	"projects"
+	"projects/internal/config"
 )
 
 type listConfig struct {
@@ -45,7 +45,7 @@ By default, only Git repositories are shown. Use --all to show all directories.`
 
 func runList(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, listCfg listConfig, prefix string) error {
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
-	
+
 	return projectSvc.Walk(func(d fs.DirEntry, p *projects.Project) error {
 		// Skip if prefix is provided and project doesn't match
 		if prefix != "" && !hasPrefix(p.String(), prefix) {

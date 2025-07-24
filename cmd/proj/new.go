@@ -6,9 +6,9 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/peterbourgon/ff/v3/ffcli"
 	"projects/internal/config"
 	"projects/internal/project"
-	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 func newNewCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {

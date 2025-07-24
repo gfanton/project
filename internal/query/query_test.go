@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"projects/internal/project"
 	"github.com/go-git/go-git/v5"
+	"projects/internal/project"
 )
 
 func setupTestProjects(t *testing.T) (string, func()) {

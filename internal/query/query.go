@@ -9,9 +9,9 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/lithammer/fuzzysearch/fuzzy"
 	"projects/internal/project"
 	"projects/internal/workspace"
-	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 // Options holds configuration for project queries.
