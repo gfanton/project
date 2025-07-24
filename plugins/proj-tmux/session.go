@@ -110,7 +110,14 @@ func newSessionSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, 
 
 func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, projectName string, autoSwitch bool) error {
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
-	tmuxSvc := NewTmuxService(logger)
+
+	// Use custom socket if specified via environment (for testing)
+	var tmuxSvc *TmuxService
+	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
+		tmuxSvc = NewTmuxServiceWithSocket(logger, socketPath)
+	} else {
+		tmuxSvc = NewTmuxService(logger)
+	}
 
 	// Parse and validate project
 	project, err := projectSvc.ParseProject(projectName)
@@ -150,7 +157,13 @@ func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 }
 
 func runSessionList(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) error {
-	tmuxSvc := NewTmuxService(logger)
+	// Use custom socket if specified via environment (for testing)
+	var tmuxSvc *TmuxService
+	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
+		tmuxSvc = NewTmuxServiceWithSocket(logger, socketPath)
+	} else {
+		tmuxSvc = NewTmuxService(logger)
+	}
 
 	sessions, err := tmuxSvc.ListSessions(ctx)
 	if err != nil {
@@ -184,7 +197,13 @@ func runSessionList(ctx context.Context, logger *slog.Logger, projectsCfg *proje
 }
 
 func runSessionCurrent(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) error {
-	tmuxSvc := NewTmuxService(logger)
+	// Use custom socket if specified via environment (for testing)
+	var tmuxSvc *TmuxService
+	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
+		tmuxSvc = NewTmuxServiceWithSocket(logger, socketPath)
+	} else {
+		tmuxSvc = NewTmuxService(logger)
+	}
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
 
 	// Try to get current tmux session
@@ -225,7 +244,13 @@ func runSessionSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 	}
 
 	sessionName := generateSessionName(project)
-	tmuxSvc := NewTmuxService(logger)
+	// Use custom socket if specified via environment (for testing)
+	var tmuxSvc *TmuxService
+	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
+		tmuxSvc = NewTmuxServiceWithSocket(logger, socketPath)
+	} else {
+		tmuxSvc = NewTmuxService(logger)
+	}
 	return tmuxSvc.SwitchSession(ctx, sessionName)
 }
 

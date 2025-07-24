@@ -92,8 +92,8 @@
 
           src = ./.;
 
-          # Disable vendoring for development (internal packages)
-          vendorHash = null;
+          # Use same vendorHash as main project since they share go.mod
+          vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
 
           # Override build flags to not use vendor mode
           buildFlags = [ "-mod=mod" ];
