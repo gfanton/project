@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"projects"
+	"github.com/gfanton/projects"
 )
 
 func newWindowCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {

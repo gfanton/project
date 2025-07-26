@@ -11,7 +11,7 @@ create_sample_projects() {
     
     log_info "Creating sample projects in $project_root"
     
-    # Project 1: gfanton/project
+    # Project 1: gfanton/projects
     create_project "$project_root" "gfanton" "project" "Main project management tool"
     
     # Project 2: gfanton/dotfiles  

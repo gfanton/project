@@ -4,7 +4,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"projects"
+	"github.com/gfanton/projects"
 )
 
 // mockLogger implements projects.Logger for testing

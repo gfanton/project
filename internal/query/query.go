@@ -10,8 +10,8 @@ import (
 	"strings"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
-	"projects/internal/project"
-	"projects/internal/workspace"
+	"github.com/gfanton/projects/internal/project"
+	"github.com/gfanton/projects/internal/workspace"
 )
 
 // Options holds configuration for project queries.

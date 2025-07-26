@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"projects/internal/project"
+	"github.com/gfanton/projects/internal/project"
 )
 
 func TestService_WorkspaceDir(t *testing.T) {

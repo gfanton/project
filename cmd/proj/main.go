@@ -5,12 +5,18 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"log/slog"
 	"os"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"projects"
-	"projects/internal/config"
+	"github.com/gfanton/projects"
+	"github.com/gfanton/projects/internal/config"
 )
+
+type rootConfig struct {
+	config *config.Config
+	logger *slog.Logger
+}
 
 func main() {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -38,6 +44,11 @@ func main() {
 	}
 	projectsLogger := projects.NewSlogAdapter(logger)
 
+	rootCfg := &rootConfig{
+		config: cfg,
+		logger: logger,
+	}
+
 	root := &ffcli.Command{
 		Name:       "proj",
 		ShortUsage: "proj [flags] <subcommand>",
@@ -57,6 +68,7 @@ Use 'proj <subcommand> -h' for more information about a specific command.`,
 			newGetCommand(logger, cfg),
 			newQueryCommand(logger, cfg, projectsCfg, projectsLogger),
 			newWorkspaceCommand(logger, cfg, projectsCfg, projectsLogger),
+			NewVersionCommand(rootCfg),
 		},
 	}
 

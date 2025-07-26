@@ -9,8 +9,8 @@ import (
 	"strings"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"projects"
-	"projects/internal/config"
+	"github.com/gfanton/projects"
+	"github.com/gfanton/projects/internal/config"
 )
 
 type queryConfig struct {
@@ -67,7 +67,7 @@ Examples:
   proj query myapp
   proj query --exclude $(pwd) myapp
   proj query --abspath --limit 5 app
-  proj query gfanton/project:main
+  proj query gfanton/projects:main
   proj query :dev`,
 		FlagSet: fs,
 		Exec: func(ctx context.Context, args []string) error {

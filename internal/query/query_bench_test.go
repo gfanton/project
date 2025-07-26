@@ -9,7 +9,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-git/v5"
-	"projects/internal/project"
+	"github.com/gfanton/projects/internal/project"
 )
 
 func setupBenchmarkProjects(b *testing.B, numProjects int) (string, func()) {

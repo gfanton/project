@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"projects/internal/project"
+	"github.com/gfanton/projects/internal/project"
 )
 
 type Service struct {

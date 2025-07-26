@@ -9,8 +9,8 @@ import (
 	"os"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"projects"
-	"projects/internal/config"
+	"github.com/gfanton/projects"
+	"github.com/gfanton/projects/internal/config"
 )
 
 func newWorkspaceCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {

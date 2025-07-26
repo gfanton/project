@@ -10,10 +10,23 @@ TMUX_CMD_DIR := ./plugins/proj-tmux
 # Default target
 all: build
 
+# Build variables for version information
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
+DATE ?= $(shell date -u '+%Y-%m-%d %H:%M:%S UTC')
+BUILT_BY ?= $(shell whoami)
+
+# Build flags for version injection
+BUILD_FLAGS := -ldflags "\
+	-X 'main.version=$(VERSION)' \
+	-X 'main.commit=$(COMMIT)' \
+	-X 'main.date=$(DATE)' \
+	-X 'main.builtBy=$(BUILT_BY)'"
+
 # Build the main application
 build:
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(APP_NAME) $(CMD_DIR)
+	go build $(BUILD_FLAGS) -o $(BUILD_DIR)/$(APP_NAME) $(CMD_DIR)
 
 # Build the tmux integration binary
 build-tmux:
@@ -25,7 +38,7 @@ build-all: build build-tmux
 
 # Install the main application to GOBIN
 install:
-	go install $(CMD_DIR)
+	go install $(BUILD_FLAGS) $(CMD_DIR)
 
 # Install the tmux integration binary to GOBIN
 install-tmux:
