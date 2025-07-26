@@ -28,8 +28,8 @@ func newSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, project
 		LongHelp: `Quick switch to a project session or workspace window.
 
 Targets can be:
-  project               Switch to project session (e.g., 'gfanton/project')
-  project:workspace     Switch to workspace window (e.g., 'gfanton/project:feature')
+  project               Switch to project session (e.g., 'gfanton/projects')
+  project:workspace     Switch to workspace window (e.g., 'gfanton/projects:feature')
 
 FLAGS:
   --create-session    Create session if it doesn't exist (default: true)

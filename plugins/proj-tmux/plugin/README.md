@@ -18,7 +18,7 @@ A tmux plugin for seamless project and workspace management, integrating with th
 Add this line to your `~/.tmux.conf`:
 
 ```bash
-set -g @plugin 'gfanton/project'
+set -g @plugin 'gfanton/projects'
 ```
 
 Then press `prefix + I` to install.
@@ -27,12 +27,12 @@ Then press `prefix + I` to install.
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/gfanton/project ~/.tmux/plugins/project
+git clone https://github.com/gfanton/projects ~/.tmux/plugins/projects
 ```
 
 2. Add to your `~/.tmux.conf`:
 ```bash
-run-shell ~/.tmux/plugins/project/plugins/proj-tmux/plugin/proj-tmux.tmux
+run-shell ~/.tmux/plugins/projects/plugins/proj-tmux/plugin/proj-tmux.tmux
 ```
 
 3. Reload tmux configuration:

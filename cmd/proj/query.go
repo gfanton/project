@@ -67,7 +67,7 @@ Examples:
   proj query myapp
   proj query --exclude $(pwd) myapp
   proj query --abspath --limit 5 app
-  proj query gfanton/project:main
+  proj query gfanton/projects:main
   proj query :dev`,
 		FlagSet: fs,
 		Exec: func(ctx context.Context, args []string) error {
