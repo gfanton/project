@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"projects/internal/config"
-	"projects/internal/git"
-	"projects/internal/project"
+	"github.com/gfanton/projects/internal/config"
+	"github.com/gfanton/projects/internal/git"
+	"github.com/gfanton/projects/internal/project"
 )
 
 type getConfig struct {

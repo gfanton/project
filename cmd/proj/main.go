@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"projects"
-	"projects/internal/config"
+	"github.com/gfanton/projects"
+	"github.com/gfanton/projects/internal/config"
 )
 
 func main() {

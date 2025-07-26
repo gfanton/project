@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"github.com/go-git/go-git/v5"
-	"projects/internal/project"
+	"github.com/gfanton/projects/internal/project"
 )
 
 func setupTestProjects(t *testing.T) (string, func()) {

@@ -7,8 +7,8 @@ import (
 	"os"
 
 	"github.com/peterbourgon/ff/v3/ffcli"
-	"projects/internal/config"
-	"projects/internal/project"
+	"github.com/gfanton/projects/internal/config"
+	"github.com/gfanton/projects/internal/project"
 )
 
 func newNewCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
