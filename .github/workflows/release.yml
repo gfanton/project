@@ -34,6 +34,27 @@ jobs:
         with:
           go-version: '1.23'
 
+      - name: Update flake.nix version
+        run: |
+          # Extract version from git tag (remove 'v' prefix)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.tag }}"
+          else
+            VERSION="${GITHUB_REF#refs/tags/}"
+          fi
+
+          # Remove 'v' prefix if present
+          VERSION_NO_V="${VERSION#v}"
+
+          echo "Updating flake.nix version to: ${VERSION_NO_V}"
+
+          # Update both project and proj-tmux versions in flake.nix
+          sed -i "s/version = \"[^\"]*\";/version = \"${VERSION_NO_V}\";/g" flake.nix
+
+          # Verify the changes
+          echo "Updated versions in flake.nix:"
+          grep 'version = "' flake.nix
+
       - name: Run tests
         run: nix develop --command make test
 
@@ -44,7 +65,7 @@ jobs:
           nix build --impure 2>&1 | tee build-output.log
           BUILD_EXIT_CODE=$?
           set -e  # Re-enable exit on error
-          
+
           if [ $BUILD_EXIT_CODE -eq 0 ]; then
             echo "Build succeeded - vendorHash is already correct"
           else
@@ -52,18 +73,18 @@ jobs:
             if grep -q "got:" build-output.log; then
               VENDOR_HASH=$(grep "got:" build-output.log | sed 's/.*got: *//')
               echo "Extracted vendorHash: ${VENDOR_HASH}"
-              
+
               # Save vendorHash to temp file for later use
               echo "${VENDOR_HASH}" > vendor-hash.txt
-              
+
               # Update flake.nix with real hash temporarily
               cp flake.nix flake.nix.bak
               sed -i "s|vendorHash = pkgs.lib.fakeHash;|vendorHash = \"${VENDOR_HASH}\";|" flake.nix
-              
+
               # Test build with real hash
               nix build
               echo "Build succeeded with correct vendorHash"
-              
+
               # Restore original flake.nix to keep git clean
               mv flake.nix.bak flake.nix
             else
@@ -72,7 +93,7 @@ jobs:
               exit 1
             fi
           fi
-          
+
           # Clean up all artifacts
           rm -f build-output.log vendor-hash.txt
 
@@ -84,4 +105,3 @@ jobs:
           args: release --clean
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
