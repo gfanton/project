@@ -39,12 +39,12 @@ jobs:
           # Verify flake.nix has correct version - be more specific to avoid multiple matches
           echo "Verifying flake.nix has correct version..."
           
-          # Look specifically for the main project version (first occurrence)
-          FLAKE_VERSION=$(awk '/packages\.project.*buildGo.*Module.*rec.*{/,/version = "/{if(/version = "/){gsub(/.*version = "|";.*/, ""); print; exit}}' flake.nix)
+          # Look for the global projectVersion variable
+          FLAKE_VERSION=$(grep 'projectVersion = "' flake.nix | sed 's/.*projectVersion = "\([^"]*\)".*/\1/')
           
-          # Fallback to simpler method if awk fails
+          # Fallback to looking for version in package definition if projectVersion not found
           if [ -z "$FLAKE_VERSION" ]; then
-            FLAKE_VERSION=$(grep -m1 'version = "' flake.nix | sed 's/.*version = "\([^"]*\)".*/\1/')
+            FLAKE_VERSION=$(awk '/version = projectVersion;/{found=1} /version = "/ && !found {gsub(/.*version = "|";.*/, ""); print; exit}' flake.nix)
           fi
           
           echo "Expected version: ${VERSION_NO_V}"
