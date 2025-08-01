@@ -126,6 +126,24 @@
 
           src = ./plugins/proj-tmux/plugin;
 
+          # Dependencies - the plugin needs proj and proj-tmux binaries
+          buildInputs = [ projectPackage projTmuxPackage ];
+          
+          # Wrap the scripts to have access to the binaries
+          nativeBuildInputs = [ pkgs.makeWrapper ];
+          
+          postInstall = ''
+            # Wrap the main plugin script
+            wrapProgram $out/share/tmux-plugins/tmux-proj/proj-tmux.tmux \
+              --prefix PATH : ${pkgs.lib.makeBinPath [ projectPackage projTmuxPackage ]}
+            
+            # Wrap all scripts in the scripts directory
+            for script in $out/share/tmux-plugins/tmux-proj/scripts/*.sh; do
+              wrapProgram "$script" \
+                --prefix PATH : ${pkgs.lib.makeBinPath [ projectPackage projTmuxPackage ]}
+            done
+          '';
+
           meta = with pkgs.lib; {
             description = "A tmux plugin for proj - Git-based project management with session integration";
             homepage = "https://github.com/gfanton/project";
@@ -323,6 +341,16 @@
           version = projectVersion;
           rtpFilePath = "proj-tmux.tmux";
           src = ./plugins/proj-tmux/plugin;
+          
+          # Dependencies - the plugin needs proj and proj-tmux binaries
+          buildInputs = [ final.project ];
+          nativeBuildInputs = [ final.makeWrapper ];
+          
+          postInstall = ''
+            # Note: The consuming nixpkgs config should ensure proj is in PATH
+            # This plugin expects proj and proj-tmux to be available
+          '';
+          
           meta = with final.lib; {
             description = "A tmux plugin for proj - Git-based project management with session integration";
             homepage = "https://github.com/gfanton/project";
