@@ -270,34 +270,8 @@ if [ "$DRY_RUN" = true ]; then
 else
     git add flake.nix
 
-    # Ask if user wants to add release notes
-    if gum confirm "Add release notes to commit message?"; then
-        echo ""
-        gum style --foreground 99 "Enter release notes (what changed in this release):"
-        RELEASE_NOTES=$(gum write \
-            --placeholder "- Fixed bug in ...
-- Added feature ...
-- Improved performance of ..." \
-            --width 80 \
-            --height 8)
-
-        if [ -n "$RELEASE_NOTES" ]; then
-            COMMIT_MSG="chore: release ${VERSION}
-
-$RELEASE_NOTES
-
-- Update vendor hash to real value
-- Update version in flake.nix"
-        else
-            COMMIT_MSG="$DEFAULT_COMMIT_MSG"
-        fi
-    else
-        COMMIT_MSG="$DEFAULT_COMMIT_MSG"
-    fi
-
-    echo ""
-    gum style --foreground 99 "Commit message:"
-    gum style --foreground 245 --faint "$COMMIT_MSG"
+    # Use default commit message automatically
+    COMMIT_MSG="$DEFAULT_COMMIT_MSG"
 
     # Create commit
     git commit -m "$COMMIT_MSG"
@@ -311,33 +285,17 @@ echo ""
 if [ "$DRY_RUN" = true ]; then
     gum style --foreground 214 "Would create tag: $VERSION"
 else
-    # Default tag message
+    # Create tag with default message
     TAG_MSG="Release ${VERSION}"
-
-    # Ask if user wants custom tag message
-    if gum confirm "Add custom tag message?"; then
-        echo ""
-        gum style --foreground 99 "Enter tag message:"
-        CUSTOM_TAG_MSG=$(gum input --placeholder "$TAG_MSG" --value "$TAG_MSG")
-        if [ -n "$CUSTOM_TAG_MSG" ]; then
-            TAG_MSG="$CUSTOM_TAG_MSG"
-        fi
-    fi
-
     git tag -a "$VERSION" -m "$TAG_MSG"
     gum style --foreground 46 "✓ Created tag: $VERSION"
 fi
 
-echo ""
-gum format "# Step 6: Pushing changes"
-echo ""
-
-# Push commit and tag
+# Show release summary
 if [ "$DRY_RUN" = true ]; then
-    echo "Would push to: origin $CURRENT_BRANCH"
-    echo "Would push tag: $VERSION"
+    echo ""
+    gum style --foreground 214 "Would create release $VERSION (dry run completed)"
 else
-    # Show release summary
     echo ""
     gum style \
         --border normal \
@@ -349,35 +307,30 @@ else
 $(gum style --foreground 245 "Version:  $(gum style --foreground 99 --bold "$VERSION")
 Branch:   $CURRENT_BRANCH
 Commit:   $(git log -1 --format=%h)
+Tag:      $VERSION
 
-This will:
-  • Push commit to origin/$CURRENT_BRANCH
-  • Push tag $VERSION
-  • Trigger GitHub Actions release")"
-
-    if gum confirm "Push release to remote?"; then
-        echo "Pushing to remote..."
-        git push origin "$CURRENT_BRANCH"
-        git push origin "$VERSION"
-    else
-        echo -e "${YELLOW}Push cancelled. Changes are committed locally but not pushed.${NC}"
-        echo "To push manually later, run:"
-        echo "  git push origin $CURRENT_BRANCH"
-        echo "  git push origin $VERSION"
-        exit 0
-    fi
+Ready to push:
+  • git push origin $CURRENT_BRANCH
+  • git push origin $VERSION")"
 fi
 
 # Success message
 echo ""
-gum style \
-    --foreground 46 --border double --border-foreground 46 \
-    --align center --width 60 --padding "1 2" \
-    "✅ Release ${VERSION} completed successfully!"
+if [ "$DRY_RUN" = true ]; then
+    gum style \
+        --foreground 214 --border double --border-foreground 214 \
+        --align center --width 60 --padding "1 2" \
+        "✅ Dry run completed successfully!"
+else
+    gum style \
+        --foreground 46 --border double --border-foreground 46 \
+        --align center --width 60 --padding "1 2" \
+        "✅ Release ${VERSION} prepared successfully!"
 
-echo ""
-gum format "**Next steps:**
-1. GitHub Actions will automatically build and release binaries
-2. Check the [Actions tab](https://github.com/gfanton/project/actions) for build progress
-3. Once complete, the release will be available at:
-   https://github.com/gfanton/project/releases/tag/${VERSION}"
+    echo ""
+    gum format "**To complete the release:**
+1. Review the changes: \`git show HEAD\`
+2. Push the commit: \`git push origin $CURRENT_BRANCH\`
+3. Push the tag: \`git push origin $VERSION\`
+4. GitHub Actions will automatically build and release binaries"
+fi
