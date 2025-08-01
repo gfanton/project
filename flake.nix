@@ -27,7 +27,7 @@
 
         packages.project = pkgs.buildGo123Module rec {
           pname = "project";
-          version = "0.16.1";
+          version = "0.16.2";
 
           src = ./.;
 
@@ -87,7 +87,7 @@
         # Tmux integration binary
         packages.proj-tmux = pkgs.buildGo123Module rec {
           pname = "proj-tmux";
-          version = "0.16.1";
+          version = "0.16.2";
 
           src = ./.;
 
