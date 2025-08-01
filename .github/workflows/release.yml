@@ -34,31 +34,43 @@ jobs:
           VERSION="${GITHUB_REF#refs/tags/}"
           VERSION_NO_V="${VERSION#v}"
           
-          echo "Tag version: ${VERSION}"
-          echo "Expected version: ${VERSION_NO_V}"
+          echo "Processing release for version: ${VERSION} (${VERSION_NO_V})"
           
-          # Verify flake.nix has correct version
+          # Verify flake.nix has correct version - be more specific to avoid multiple matches
           echo "Verifying flake.nix has correct version..."
-          FLAKE_VERSION=$(grep 'version = "' flake.nix | sed 's/.*version = "\([^"]*\)".*/\1/')
-          echo "Flake version: ${FLAKE_VERSION}"
           
-          if [ "${FLAKE_VERSION}" != "${VERSION_NO_V}" ]; then
-            echo "Error: Version mismatch in flake.nix"
-            echo "Expected: ${VERSION_NO_V}, Found: ${FLAKE_VERSION}"
-            echo "Please ensure the release was created with ./scripts/release.sh"
+          # Look specifically for the main project version (first occurrence)
+          FLAKE_VERSION=$(awk '/packages\.project.*buildGo.*Module.*rec.*{/,/version = "/{if(/version = "/){gsub(/.*version = "|";.*/, ""); print; exit}}' flake.nix)
+          
+          # Fallback to simpler method if awk fails
+          if [ -z "$FLAKE_VERSION" ]; then
+            FLAKE_VERSION=$(grep -m1 'version = "' flake.nix | sed 's/.*version = "\([^"]*\)".*/\1/')
+          fi
+          
+          echo "Expected version: ${VERSION_NO_V}"
+          echo "Found version: ${FLAKE_VERSION}"
+          
+          # Trim whitespace and compare
+          VERSION_NO_V_TRIMMED=$(echo "${VERSION_NO_V}" | tr -d '[:space:]')
+          FLAKE_VERSION_TRIMMED=$(echo "${FLAKE_VERSION}" | tr -d '[:space:]')
+          
+          if [ "${FLAKE_VERSION_TRIMMED}" != "${VERSION_NO_V_TRIMMED}" ]; then
+            echo "❌ Version mismatch in flake.nix"
+            echo "Expected: '${VERSION_NO_V_TRIMMED}' (length: ${#VERSION_NO_V_TRIMMED})"
+            echo "Found: '${FLAKE_VERSION_TRIMMED}' (length: ${#FLAKE_VERSION_TRIMMED})"
             exit 1
           fi
+          
+          echo "✅ Version verification passed"
           
           # Verify vendorHash is not fake
-          if grep -q "fakeHash" flake.nix; then
-            echo "Error: flake.nix contains fakeHash"
+          if grep -q "fakeHash\|pkgs\.lib\.fakeHash" flake.nix; then
+            echo "❌ flake.nix contains fakeHash"
             echo "Please ensure the release was created with ./scripts/release.sh"
             exit 1
           fi
           
-          # Show current state
-          echo "Current flake.nix configuration:"
-          grep -E "version = \"|vendorHash = \"" flake.nix
+          echo "✅ Vendor hash verification passed"
 
       - name: Verify nix build
         run: |
