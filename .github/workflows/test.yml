@@ -22,10 +22,10 @@ jobs:
         nix_path: nixpkgs=channel:nixos-unstable
     
     - name: Run tests
-      run: nix develop --command make test
+      run: nix develop --impure --command make test
     
     - name: Generate coverage report
-      run: nix develop --command make test-coverage
+      run: nix develop --impure --command make test-coverage
     
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
