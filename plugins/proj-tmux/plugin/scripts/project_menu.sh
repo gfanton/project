@@ -44,15 +44,27 @@ generate_menu_items() {
     done
 }
 
+# Check if we're in an interactive tmux context
+is_interactive_context() {
+    # Check if we have a controlling terminal
+    [[ -t 0 ]] && [[ -t 1 ]] && [[ -t 2 ]]
+}
+
 # Show project selection menu
 show_project_menu() {
     local project_count
     project_count=$(get_project_count)
     
-    # If we have many projects (>15), use fzf popup instead of menu
+    # If we have many projects (>15), try popup if in interactive context
     if [[ "$project_count" -gt 15 ]] && command -v fzf >/dev/null 2>&1; then
-        "$(dirname "$0")/project_popup.sh"
-        return
+        if is_interactive_context; then
+            # Interactive context - use popup
+            "$(dirname "$0")/project_popup.sh"
+            return
+        else
+            # Non-interactive context - use menu but with a warning
+            tmux display-message "Many projects ($project_count). Use Ctrl+P for popup or select from first 15:"
+        fi
     fi
     
     local menu_items

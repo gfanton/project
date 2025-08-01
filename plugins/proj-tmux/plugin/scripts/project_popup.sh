@@ -43,16 +43,31 @@ project_picker() {
     fi
 }
 
+# Check if we can show a popup (need active tmux client)
+can_show_popup() {
+    # Check if we have an active tmux client that can display popups
+    tmux list-clients >/dev/null 2>&1 && [[ -n "${TMUX:-}" ]]
+}
+
 # Show project popup
 show_project_popup() {
     if ! check_fzf; then
         return 1
     fi
     
+    if ! can_show_popup; then
+        tmux display-message "Cannot show popup: no active tmux client. Use from within tmux session."
+        return 1
+    fi
+    
     # Use tmux display-popup to show the project picker
     tmux display-popup -E -w 90% -h 80% -d "#{pane_current_path}" \
         -t 'Project Selection' \
-        "bash -c '$(declare -f project_picker check_fzf); project_picker'"
+        "bash -c '$(declare -f project_picker check_fzf); project_picker'" || {
+        # If popup fails, show helpful message
+        tmux display-message "Popup failed. Try using Prefix+P for menu instead."
+        return 1
+    }
 }
 
 # Alternative fallback menu if fzf not available
