@@ -4,12 +4,6 @@ on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to release (e.g., v1.0.0)'
-        required: true
-        type: string
 
 permissions:
   contents: write
@@ -34,74 +28,46 @@ jobs:
         with:
           go-version: '1.23'
 
-      - name: Update flake.nix version
+      - name: Verify release tag
         run: |
-          # Extract version from git tag (remove 'v' prefix)
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            VERSION="${{ github.event.inputs.tag }}"
-          else
-            VERSION="${GITHUB_REF#refs/tags/}"
-          fi
-
-          # Remove 'v' prefix if present
+          # Extract version from tag
+          VERSION="${GITHUB_REF#refs/tags/}"
           VERSION_NO_V="${VERSION#v}"
-
-          echo "Updating flake.nix version to: ${VERSION_NO_V}"
-
-          # Update both project and proj-tmux versions in flake.nix
-          sed -i "s/version = \"[^\"]*\";/version = \"${VERSION_NO_V}\";/g" flake.nix
-
-          # Verify the changes
-          echo "Updated versions in flake.nix:"
-          grep 'version = "' flake.nix
           
-          # Commit the changes to keep git clean for GoReleaser
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add flake.nix
-          git commit -m "chore: update flake.nix version to ${VERSION_NO_V} for release ${VERSION}"
+          echo "Tag version: ${VERSION}"
+          echo "Expected version: ${VERSION_NO_V}"
+          
+          # Verify flake.nix has correct version
+          echo "Verifying flake.nix has correct version..."
+          FLAKE_VERSION=$(grep 'version = "' flake.nix | sed 's/.*version = "\([^"]*\)".*/\1/')
+          echo "Flake version: ${FLAKE_VERSION}"
+          
+          if [ "${FLAKE_VERSION}" != "${VERSION_NO_V}" ]; then
+            echo "Error: Version mismatch in flake.nix"
+            echo "Expected: ${VERSION_NO_V}, Found: ${FLAKE_VERSION}"
+            echo "Please ensure the release was created with ./scripts/release.sh"
+            exit 1
+          fi
+          
+          # Verify vendorHash is not fake
+          if grep -q "fakeHash" flake.nix; then
+            echo "Error: flake.nix contains fakeHash"
+            echo "Please ensure the release was created with ./scripts/release.sh"
+            exit 1
+          fi
+          
+          # Show current state
+          echo "Current flake.nix configuration:"
+          grep -E "version = \"|vendorHash = \"" flake.nix
+
+      - name: Verify nix build
+        run: |
+          echo "Testing nix build..."
+          nix build --no-link
+          echo "Build successful!"
 
       - name: Run tests
         run: nix develop --command make test
-
-      - name: Verify Nix build
-        run: |
-          # Calculate vendorHash - build should fail with fakeHash
-          set +e  # Don't exit on build failure
-          nix build --impure 2>&1 | tee build-output.log
-          BUILD_EXIT_CODE=$?
-          set -e  # Re-enable exit on error
-
-          if [ $BUILD_EXIT_CODE -eq 0 ]; then
-            echo "Build succeeded - vendorHash is already correct"
-          else
-            echo "Build failed as expected with fakeHash, extracting real hash..."
-            if grep -q "got:" build-output.log; then
-              VENDOR_HASH=$(grep "got:" build-output.log | sed 's/.*got: *//')
-              echo "Extracted vendorHash: ${VENDOR_HASH}"
-
-              # Save vendorHash to temp file for later use
-              echo "${VENDOR_HASH}" > vendor-hash.txt
-
-              # Update flake.nix with real hash and commit it
-              sed -i "s|vendorHash = \"[^\"]*\";|vendorHash = \"${VENDOR_HASH}\";|g" flake.nix
-              
-              # Test build with real hash
-              nix build
-              echo "Build succeeded with correct vendorHash"
-              
-              # Commit the vendorHash update
-              git add flake.nix
-              git commit -m "chore: update vendorHash for release"
-            else
-              echo "Failed to extract vendorHash from build output"
-              cat build-output.log
-              exit 1
-            fi
-          fi
-
-          # Clean up all artifacts
-          rm -f build-output.log vendor-hash.txt
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
