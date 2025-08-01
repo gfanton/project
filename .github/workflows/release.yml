@@ -63,14 +63,7 @@ jobs:
           
           echo "✅ Version verification passed"
           
-          # Verify vendorHash is not fake
-          if grep -q "fakeHash\|pkgs\.lib\.fakeHash" flake.nix; then
-            echo "❌ flake.nix contains fakeHash"
-            echo "Please ensure the release was created with ./scripts/release.sh"
-            exit 1
-          fi
-          
-          echo "✅ Vendor hash verification passed"
+          echo "✅ All verifications passed"
 
       - name: Verify nix build
         run: |

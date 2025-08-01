@@ -1,10 +1,9 @@
 {
   description = "A Git-based project management tool with zoxide-like navigation for GitHub-style directory structure";
 
-  # For consumers: Use release branch for real vendorHash or latest tag
+  # For consumers: Use specific version tags or latest from master
   # Examples:
-  #   project.url = "github:gfanton/project/release";        # Always latest from release branch
-  #   project.url = "github:gfanton/project?ref=latest";     # Latest release tag
+  #   project.url = "github:gfanton/project";                # Latest from master
   #   project.url = "github:gfanton/project?ref=v1.2.3";     # Specific version tag
 
   inputs = {
@@ -32,7 +31,7 @@
 
           src = ./.;
 
-          # Use fakeHash for development, replaced with real hash during releases
+          # Real vendor hash - updated automatically by release script
           vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
 
           # Override build flags to not use vendor mode
@@ -92,7 +91,7 @@
 
           src = ./.;
 
-          # Use same vendorHash as main project since they share go.mod
+          # Same vendorHash as main project since they share go.mod
           vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
 
           # Override build flags to not use vendor mode
