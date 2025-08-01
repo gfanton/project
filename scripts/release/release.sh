@@ -42,8 +42,8 @@ for arg in "$@"; do
     fi
 done
 
-# Get current version from flake.nix
-CURRENT_VERSION=$(grep -m1 'version = "' flake.nix | sed 's/.*version = "\([^"]*\)".*/\1/')
+# Get current version from flake.nix (look for projectVersion variable)
+CURRENT_VERSION=$(grep 'projectVersion = "' flake.nix | sed 's/.*projectVersion = "\([^"]*\)".*/\1/')
 
 # If no version provided, prompt for it using gum
 if [ -z "$VERSION" ]; then
@@ -165,24 +165,25 @@ calculate_vendor_hash() {
     fi
 }
 
-# Calculate vendor hash
-gum style --foreground 99 "🔍 Checking vendor hash..."
+# Calculate vendor hash - always ensure it's correct
+gum style --foreground 99 "🔍 Calculating vendor hash..."
 
-# Try current hash first
-if nix build . --no-link >/dev/null 2>&1; then
+# Always try to build with current hash first
+if timeout 30s nix build .#project --no-link >/dev/null 2>&1; then
     VENDOR_HASH="$CURRENT_HASH"
     gum style --foreground 46 "✓ Current vendor hash is valid"
 else
-    gum style --foreground 99 "⚡ Calculating new vendor hash..."
-
-    # Calculate vendor hash by temporarily using fake hash
+    # Current hash is invalid, calculate the correct one
+    gum style --foreground 99 "⚡ Current vendor hash invalid, calculating correct hash..."
+    
     VENDOR_HASH=$(calculate_vendor_hash)
     if [ -z "$VENDOR_HASH" ]; then
         gum style --foreground 196 "❌ Failed to calculate vendor hash"
+        echo "Please ensure Go dependencies are accessible and try again"
         exit 1
     fi
-
-    gum style --foreground 214 "📦 New vendor hash: $(gum style --foreground 99 --bold "$VENDOR_HASH")"
+    
+    gum style --foreground 214 "📦 Updated vendor hash: $(gum style --foreground 99 --bold "$VENDOR_HASH")"
 fi
 
 
@@ -208,14 +209,14 @@ VERSION_NO_V="${VERSION#v}"
 
 # Update version in flake.nix
 if [ "$DRY_RUN" = true ]; then
-    echo "Would update version to: $VERSION_NO_V"
+    echo "Would update projectVersion to: $VERSION_NO_V"
 else
     if [[ "$OSTYPE" == "darwin"* ]]; then
-        # macOS
-        sed -i '' "s|version = \".*\"|version = \"$VERSION_NO_V\"|" flake.nix
+        # macOS - update the shared projectVersion variable
+        sed -i '' "s|projectVersion = \".*\"|projectVersion = \"$VERSION_NO_V\"|" flake.nix
     else
-        # Linux
-        sed -i "s|version = \".*\"|version = \"$VERSION_NO_V\"|" flake.nix
+        # Linux - update the shared projectVersion variable
+        sed -i "s|projectVersion = \".*\"|projectVersion = \"$VERSION_NO_V\"|" flake.nix
     fi
 fi
 
@@ -227,9 +228,9 @@ echo ""
 if [ "$DRY_RUN" = true ]; then
     gum style --foreground 214 "Would test nix build (skipping in dry-run mode)"
 else
-    # Function to test build
+    # Function to test build with timeout
     test_build() {
-        if nix build --no-link 2>/dev/null; then
+        if timeout 600s nix build --no-link 2>/dev/null; then
             echo "success"
         else
             echo "failed"

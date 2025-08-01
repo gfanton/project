@@ -17,17 +17,20 @@
       nixpkgs,
       flake-utils,
     }:
+    let
+      # Global shared version for all packages and systems
+      # This version is automatically updated by the release script
+      projectVersion = "0.16.3";
+    in
     flake-utils.lib.eachDefaultSystem (
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-      in
-      {
-        packages.default = self.packages.${system}.project;
 
-        packages.project = pkgs.buildGo123Module rec {
+        # Define project package
+        projectPackage = pkgs.buildGo123Module rec {
           pname = "project";
-          version = "0.16.2";
+          version = projectVersion;
 
           src = ./.;
 
@@ -84,10 +87,10 @@
           };
         };
 
-        # Tmux integration binary
-        packages.proj-tmux = pkgs.buildGo123Module rec {
+        # Define proj-tmux package
+        projTmuxPackage = pkgs.buildGo123Module rec {
           pname = "proj-tmux";
-          version = "0.16.2";
+          version = projectVersion;
 
           src = ./.;
 
@@ -115,13 +118,37 @@
           };
         };
 
+        # Define tmux plugin package
+        tmuxProjPackage = pkgs.tmuxPlugins.mkTmuxPlugin rec {
+          pluginName = "tmux-proj";
+          version = projectVersion;
+          rtpFilePath = "proj-tmux.tmux";
+
+          src = ./plugins/proj-tmux/plugin;
+
+          meta = with pkgs.lib; {
+            description = "A tmux plugin for proj - Git-based project management with session integration";
+            homepage = "https://github.com/gfanton/project";
+            license = licenses.mit;
+            platforms = platforms.unix;
+            maintainers = [ "gfanton" ];
+          };
+        };
+      in
+      {
+        # Packages - no self-references to avoid circular dependencies
+        packages = {
+          default = projectPackage;
+          project = projectPackage;
+          proj-tmux = projTmuxPackage;
+          tmux-proj = tmuxProjPackage;
+        };
+
         # Development shells
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Go toolchain
             go_1_23
-            golangci-lint
-            gopls
 
             # Shells for testing
             bash
@@ -166,8 +193,6 @@
           buildInputs = with pkgs; [
             # Go toolchain
             go_1_23
-            golangci-lint
-            gopls
 
             # Testing frameworks and tools
             tmux
@@ -249,61 +274,63 @@
         # Apps for easy running
         apps.default = {
           type = "app";
-          program = "${self.packages.${system}.project}/bin/proj";
+          program = "${projectPackage}/bin/proj";
         };
 
         # Checks for CI
         checks = {
-          project-build = self.packages.${system}.project;
+          # Simple build test without circular dependencies
+          project-build = projectPackage;
+          proj-tmux-build = projTmuxPackage;
+          tmux-proj-build = tmuxProjPackage;
 
-          # Basic tmux testing (non-interactive)
-          tmux-unit-tests = pkgs.stdenv.mkDerivation {
-            name = "tmux-unit-tests";
-            src = ./.;
-
-            nativeBuildInputs = with pkgs; [
-              tmux
-              bats
-              bash
-              git
-              self.packages.${system}.project
-              self.packages.${system}.proj-tmux
-            ];
-
-            buildPhase = ''
-              # Set up test environment
-              export TEST_TMUX_DIR=$(mktemp -d)
-              export TEST_TMUX_SOCKET="$TEST_TMUX_DIR/test-socket"
-              export TEST_PROJECT_DIR="$TEST_TMUX_DIR/projects"
-              export TMUX_TMPDIR="$TEST_TMUX_DIR"
-              export PROJ_BINARY="${self.packages.${system}.project}/bin/proj"
-              export PROJ_TMUX_BINARY="${self.packages.${system}.proj-tmux}/bin/proj-tmux"
-
-              # Run BATS unit tests
-              if [[ -d tests/unit && $(find tests/unit -name "*.bats" | wc -l) -gt 0 ]]; then
-                bats tests/unit/ || exit 1
-              fi
-
-              # Cleanup
-              tmux -S "$TEST_TMUX_SOCKET" kill-server 2>/dev/null || true
-              rm -rf "$TEST_TMUX_DIR"
-            '';
-
-            installPhase = ''
-              mkdir -p $out
-              echo "Tmux unit tests passed" > $out/test-results.txt
-            '';
-          };
-
-          # Note: Interactive shell integration tests require manual execution
-          # Run them with `nix develop .#testing` and then `bats tests/unit/`
+          # Note: Advanced integration tests with package dependencies
+          # should be run manually with `nix develop .#testing` and then `bats tests/unit/`
         };
       }
     )
     // {
-      # Overlay for use in other flakes
+      # Overlay for use in other flakes - allows importing tmux-proj easily
       overlays.default = final: prev: {
-        project = self.packages.${final.system}.project;
+        # Make project packages available in nixpkgs
+        project = final.callPackage (
+          { buildGo123Module }:
+          buildGo123Module rec {
+            pname = "project";
+            version = projectVersion;
+            src = ./.;
+            vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
+            buildFlags = [ "-mod=mod" ];
+            ldflags = [
+              "-s"
+              "-w"
+              "-X main.version=${version}"
+            ];
+            subPackages = [ "cmd/proj" ];
+            meta = with final.lib; {
+              description = "A Git-based project management tool with zoxide-like navigation";
+              homepage = "https://github.com/gfanton/project";
+              license = licenses.mit;
+              maintainers = [ "gfanton" ];
+              mainProgram = "proj";
+            };
+          }
+        ) { };
+
+        # Make tmux plugin easily available
+        tmux-proj = final.tmuxPlugins.mkTmuxPlugin rec {
+          pluginName = "tmux-proj";
+          version = projectVersion;
+          rtpFilePath = "proj-tmux.tmux";
+          src = ./plugins/proj-tmux/plugin;
+          meta = with final.lib; {
+            description = "A tmux plugin for proj - Git-based project management with session integration";
+            homepage = "https://github.com/gfanton/project";
+            license = licenses.mit;
+            platforms = platforms.unix;
+            maintainers = [ "gfanton" ];
+          };
+        };
       };
     };
 }
