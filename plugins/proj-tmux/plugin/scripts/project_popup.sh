@@ -16,14 +16,22 @@ check_fzf() {
 project_picker() {
     local selected_project
     
-    # Get projects and pipe to fzf
-    selected_project=$(proj list 2>/dev/null | fzf \
-        --prompt="Select project: " \
-        --height=40% \
-        --border \
-        --header="Use ↑↓ to navigate, Enter to select, Esc to cancel" \
-        --preview="echo 'Project: {}'" \
-        --preview-window=down:2 \
+    # Get projects with status info for better display
+    local projects_with_status projects_clean
+    projects_with_status=$(proj list 2>/dev/null)
+    projects_clean=$(echo "$projects_with_status" | sed 's/ - \[.*\]$//')
+    
+    # Use fzf with enhanced preview
+    selected_project=$(echo "$projects_clean" | fzf \
+        --prompt="⚡ Select project: " \
+        --height=80% \
+        --border=rounded \
+        --header="Navigate: ↑↓ | Select: Enter | Cancel: Esc | Search: type to filter" \
+        --preview="echo 'Project: {}' && echo '' && echo 'Path: ~/code/{}'" \
+        --preview-window=down:4:wrap \
+        --cycle \
+        --reverse \
+        --bind='ctrl-u:preview-page-up,ctrl-d:preview-page-down' \
     ) || {
         # User cancelled or no selection
         return 1
@@ -31,7 +39,7 @@ project_picker() {
     
     if [[ -n "$selected_project" ]]; then
         # Create/switch to project session
-        proj-tmux session create "$selected_project"
+        cd ~/code && proj-tmux session create "$selected_project"
     fi
 }
 
@@ -42,8 +50,9 @@ show_project_popup() {
     fi
     
     # Use tmux display-popup to show the project picker
-    tmux display-popup -E -w 80% -h 60% -d "#{pane_current_path}" \
-        "bash -c '$(declare -f project_picker); project_picker'"
+    tmux display-popup -E -w 90% -h 80% -d "#{pane_current_path}" \
+        -t 'Project Selection' \
+        "bash -c '$(declare -f project_picker check_fzf); project_picker'"
 }
 
 # Alternative fallback menu if fzf not available
