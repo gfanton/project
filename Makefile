@@ -105,8 +105,9 @@ update-vendor-hash:
 
 # Release target - calls release.sh
 release:
-	@echo "Use: ./scripts/release.sh <version>"
-	@echo "Example: ./scripts/release.sh v1.2.3"
+	@echo "Use: ./scripts/release/release.sh [version]"
+	@echo "Example: ./scripts/release/release.sh v1.2.3"
+	@echo "Example: ./scripts/release/release.sh  (interactive)"
 
 # Tmux integration testing targets  
 test-tmux-unit: build build-tmux
