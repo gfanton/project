@@ -111,6 +111,13 @@ func newSessionSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, 
 func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, projectName string, autoSwitch bool) error {
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
 
+	// Load tmux configuration
+	tmuxCfg, err := LoadTmuxConfig(ctx)
+	if err != nil {
+		logger.Warn("failed to load tmux config, using defaults", "error", err)
+		tmuxCfg = DefaultTmuxConfig()
+	}
+
 	// Use custom socket if specified via environment (for testing)
 	var tmuxSvc *TmuxService
 	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
@@ -125,7 +132,7 @@ func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 		return fmt.Errorf("invalid project name: %w", err)
 	}
 
-	sessionName := generateSessionName(project)
+	sessionName := tmuxCfg.FormatSessionName(project.Organisation, project.Name)
 	logger.Debug("creating session", "project", project.String(), "session", sessionName)
 
 	// Check if session already exists
@@ -136,6 +143,14 @@ func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 
 	if exists {
 		logger.Info("session already exists", "session", sessionName)
+		
+		// Track history even when switching to existing session
+		if histSvc, err := NewHistoryService(); err == nil {
+			if err := histSvc.AddEntry(ctx, project.String()); err != nil {
+				logger.Warn("failed to update history", "error", err)
+			}
+		}
+		
 		if autoSwitch {
 			return tmuxSvc.SwitchSession(ctx, sessionName)
 		}
@@ -148,6 +163,13 @@ func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 	}
 
 	logger.Info("session created", "session", sessionName, "project", project.String())
+
+	// Track history
+	if histSvc, err := NewHistoryService(); err == nil {
+		if err := histSvc.AddEntry(ctx, project.String()); err != nil {
+			logger.Warn("failed to update history", "error", err)
+		}
+	}
 
 	if autoSwitch {
 		return tmuxSvc.SwitchSession(ctx, sessionName)
@@ -243,7 +265,14 @@ func runSessionSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 		return fmt.Errorf("invalid project name: %w", err)
 	}
 
-	sessionName := generateSessionName(project)
+	// Load tmux configuration
+	tmuxCfg, err := LoadTmuxConfig(ctx)
+	if err != nil {
+		logger.Warn("failed to load tmux config, using defaults", "error", err)
+		tmuxCfg = DefaultTmuxConfig()
+	}
+
+	sessionName := tmuxCfg.FormatSessionName(project.Organisation, project.Name)
 	// Use custom socket if specified via environment (for testing)
 	var tmuxSvc *TmuxService
 	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
@@ -254,13 +283,6 @@ func runSessionSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 	return tmuxSvc.SwitchSession(ctx, sessionName)
 }
 
-// generateSessionName creates a tmux session name from a project
-func generateSessionName(project *projects.Project) string {
-	// Replace any characters that might cause issues in tmux session names
-	org := strings.ReplaceAll(project.Organisation, ".", "-")
-	name := strings.ReplaceAll(project.Name, ".", "-")
-	return fmt.Sprintf("proj-%s-%s", org, name)
-}
 
 // extractProjectFromSession extracts project name from session name
 func extractProjectFromSession(sessionName string) string {

@@ -116,6 +116,13 @@ func runWindowCreate(ctx context.Context, logger *slog.Logger, projectsCfg *proj
 		return err
 	}
 
+	// Load tmux configuration
+	tmuxCfg, err := LoadTmuxConfig(ctx)
+	if err != nil {
+		logger.Warn("failed to load tmux config, using defaults", "error", err)
+		tmuxCfg = DefaultTmuxConfig()
+	}
+
 	workspaceSvc := projects.NewWorkspaceService(projectsCfg, projectsLogger)
 	tmuxSvc := NewTmuxService(logger)
 
@@ -137,8 +144,8 @@ func runWindowCreate(ctx context.Context, logger *slog.Logger, projectsCfg *proj
 		return fmt.Errorf("workspace '%s' not found in project %s", workspace, project.String())
 	}
 
-	sessionName := generateSessionName(project)
-	windowName := workspace
+	sessionName := tmuxCfg.FormatSessionName(project.Organisation, project.Name)
+	windowName := tmuxCfg.FormatWindowName(workspace)
 
 	logger.Debug("creating window", "project", project.String(), "workspace", workspace, "session", sessionName, "window", windowName)
 
@@ -189,7 +196,14 @@ func runWindowList(ctx context.Context, logger *slog.Logger, projectsCfg *projec
 		return err
 	}
 
-	sessionName := generateSessionName(project)
+	// Load tmux configuration
+	tmuxCfg, err := LoadTmuxConfig(ctx)
+	if err != nil {
+		logger.Warn("failed to load tmux config, using defaults", "error", err)
+		tmuxCfg = DefaultTmuxConfig()
+	}
+
+	sessionName := tmuxCfg.FormatSessionName(project.Organisation, project.Name)
 	tmuxSvc := NewTmuxService(logger)
 
 	// Check if session exists
@@ -233,8 +247,15 @@ func runWindowSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *proj
 		return err
 	}
 
-	sessionName := generateSessionName(project)
-	windowName := workspace
+	// Load tmux configuration
+	tmuxCfg, err := LoadTmuxConfig(ctx)
+	if err != nil {
+		logger.Warn("failed to load tmux config, using defaults", "error", err)
+		tmuxCfg = DefaultTmuxConfig()
+	}
+
+	sessionName := tmuxCfg.FormatSessionName(project.Organisation, project.Name)
+	windowName := tmuxCfg.FormatWindowName(workspace)
 
 	tmuxSvc := NewTmuxService(logger)
 	return tmuxSvc.SwitchWindow(ctx, sessionName, windowName)

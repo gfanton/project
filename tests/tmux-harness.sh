@@ -41,6 +41,29 @@ init_test_env() {
         fi
     fi
     
+    # Build proj-tmux binary if needed
+    if [[ -z "${PROJ_TMUX_BINARY:-}" ]]; then
+        if [[ -f "./build/proj-tmux" ]]; then
+            export PROJ_TMUX_BINARY="$(pwd)/build/proj-tmux"
+        else
+            echo -e "${YELLOW}Building proj-tmux binary...${NC}" >&2
+            go build -o ./build/proj-tmux ./plugins/proj-tmux >/dev/null 2>&1 || {
+                echo -e "${RED}Failed to build proj-tmux binary${NC}" >&2
+                exit 1
+            }
+            export PROJ_TMUX_BINARY="$(pwd)/build/proj-tmux"
+        fi
+    fi
+    
+    # Set up isolated PATH with test wrappers
+    export ORIGINAL_PATH="$PATH"
+    export TEST_WRAPPERS_DIR="$(dirname "${BASH_SOURCE[0]}")"
+    export PATH="$TEST_WRAPPERS_DIR:$PATH"
+    
+    # Clear any existing TMUX environment variables to prevent interference
+    unset TMUX 2>/dev/null || true
+    unset TMUX_PANE 2>/dev/null || true
+    
     # Kill any existing tmux server on our socket
     tmux -S "$TEST_TMUX_SOCKET" kill-server 2>/dev/null || true
     
@@ -48,6 +71,8 @@ init_test_env() {
     echo "  TEST_DIR: $TEST_DIR" >&2
     echo "  TEST_TMUX_SOCKET: $TEST_TMUX_SOCKET" >&2
     echo "  PROJ_BINARY: $PROJ_BINARY" >&2
+    echo "  PROJ_TMUX_BINARY: $PROJ_TMUX_BINARY" >&2
+    echo "  PATH: $PATH" >&2
 }
 
 # Cleanup test environment
@@ -55,6 +80,17 @@ cleanup_test_env() {
     if [[ -n "${TEST_TMUX_SOCKET:-}" ]]; then
         tmux -S "$TEST_TMUX_SOCKET" kill-server 2>/dev/null || true
     fi
+    
+    # Restore original PATH if we modified it
+    if [[ -n "${ORIGINAL_PATH:-}" ]]; then
+        export PATH="$ORIGINAL_PATH"
+    fi
+    
+    # Clean up environment variables
+    unset TEST_TMUX_SOCKET 2>/dev/null || true
+    unset TEST_PROJECT_ROOT 2>/dev/null || true
+    unset TMUX_TMPDIR 2>/dev/null || true
+    unset TEST_WRAPPERS_DIR 2>/dev/null || true
     
     if [[ -n "${TEST_DIR:-}" ]] && [[ -d "$TEST_DIR" ]]; then
         rm -rf "$TEST_DIR"

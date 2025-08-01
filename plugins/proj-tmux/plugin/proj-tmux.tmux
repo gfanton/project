@@ -8,6 +8,7 @@ SCRIPTS_DIR="$CURRENT_DIR/scripts"
 # Default configuration
 default_proj_key="P"
 default_proj_popup_key="C-p"
+default_proj_smart_key="p"
 default_proj_auto_session="on"
 default_proj_show_status="on"
 default_proj_session_format="proj-#{org}-#{name}"
@@ -35,11 +36,18 @@ setup_user_options() {
     # Popup key binding (default: C-p)
     tmux set-option -gq "@proj_popup_key" "$(tmux_option "@proj_popup_key" "$default_proj_popup_key")"
 
+    # Smart switch key binding (default: p)
+    tmux set-option -gq "@proj_smart_key" "$(tmux_option "@proj_smart_key" "$default_proj_smart_key")"
+
     # Auto create sessions (default: on)
     tmux set-option -gq "@proj_auto_session" "$(tmux_option "@proj_auto_session" "$default_proj_auto_session")"
 
     # Show in status bar (default: on)
     tmux set-option -gq "@proj_show_status" "$(tmux_option "@proj_show_status" "$default_proj_show_status")"
+
+    # Status bar options
+    tmux set-option -gq "@proj_status_show_counts" "$(tmux_option "@proj_status_show_counts" "off")"
+    tmux set-option -gq "@proj_status_show_icons" "$(tmux_option "@proj_status_show_icons" "on")"
 
     # Session name format
     tmux set-option -gq "@proj_session_format" "$(tmux_option "@proj_session_format" "$default_proj_session_format")"
@@ -50,16 +58,20 @@ setup_user_options() {
 
 # Set up key bindings
 setup_key_bindings() {
-    local proj_key proj_popup_key
+    local proj_key proj_popup_key proj_smart_key
 
     proj_key=$(tmux_option "@proj_key" "$default_proj_key")
     proj_popup_key=$(tmux_option "@proj_popup_key" "$default_proj_popup_key")
+    proj_smart_key=$(tmux_option "@proj_smart_key" "$default_proj_smart_key")
 
     # Main project menu (Prefix + P)
     tmux bind-key "$proj_key" run-shell "$SCRIPTS_DIR/project_menu.sh"
 
     # Quick project popup (Prefix + Ctrl+P)
     tmux bind-key "$proj_popup_key" run-shell "$SCRIPTS_DIR/project_popup.sh"
+
+    # Smart switch (Prefix + p)
+    tmux bind-key "$proj_smart_key" run-shell "$SCRIPTS_DIR/smart_switch.sh"
 
     # Session switcher (Prefix + S) - override default
     tmux bind-key "S" run-shell "$SCRIPTS_DIR/session_switcher.sh"

@@ -66,8 +66,15 @@ func runSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *projects.C
 				return fmt.Errorf("invalid project name: %w", err)
 			}
 
-			sessionName := generateSessionName(project)
-			windowName := workspace
+			// Load tmux configuration
+			tmuxCfg, err := LoadTmuxConfig(ctx)
+			if err != nil {
+				logger.Warn("failed to load tmux config, using defaults", "error", err)
+				tmuxCfg = DefaultTmuxConfig()
+			}
+
+			sessionName := tmuxCfg.FormatSessionName(project.Organisation, project.Name)
+			windowName := tmuxCfg.FormatWindowName(workspace)
 
 			tmuxSvc := NewTmuxService(logger)
 			return tmuxSvc.SwitchWindow(ctx, sessionName, windowName)
@@ -87,7 +94,14 @@ func runSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *projects.C
 				return fmt.Errorf("invalid project name: %w", err)
 			}
 
-			sessionName := generateSessionName(project)
+			// Load tmux configuration
+			tmuxCfg, err := LoadTmuxConfig(ctx)
+			if err != nil {
+				logger.Warn("failed to load tmux config, using defaults", "error", err)
+				tmuxCfg = DefaultTmuxConfig()
+			}
+
+			sessionName := tmuxCfg.FormatSessionName(project.Organisation, project.Name)
 			tmuxSvc := NewTmuxService(logger)
 			return tmuxSvc.SwitchSession(ctx, sessionName)
 		}

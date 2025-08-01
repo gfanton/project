@@ -59,6 +59,7 @@ Use 'proj-tmux <subcommand> -h' for more information about a specific command.`,
 			newWindowCommand(logger, projectsCfg, projectsLogger),
 			newSwitchCommand(logger, projectsCfg, projectsLogger),
 			newStatusCommand(logger, projectsCfg, projectsLogger),
+			newHistoryCommand(logger, projectsCfg, projectsLogger),
 		},
 	}
 
