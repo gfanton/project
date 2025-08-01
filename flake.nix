@@ -31,7 +31,7 @@
 
           src = ./.;
 
-          # Real vendor hash - updated automatically by release script
+          # Vendor hash - updated by release script or manually during development
           vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
 
           # Override build flags to not use vendor mode
