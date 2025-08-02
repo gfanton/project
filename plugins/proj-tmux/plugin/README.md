@@ -50,8 +50,9 @@ tmux source-file ~/.tmux.conf
 
 | Key Binding | Action |
 |-------------|--------|
-| `Prefix + P` | Open project selection menu |
-| `Prefix + Ctrl+P` | Open project picker popup (requires fzf) |
+| `Prefix + P` | Open project selection menu (uses fzf popup if available) |
+| `Prefix + Ctrl+P` | Project/Workspace popup for creating/switching sessions |
+| `Prefix + Ctrl+W` | Project/Workspace popup for creating/switching windows |
 | `Prefix + S` | Enhanced session switcher |
 | `Prefix + W` | Workspace management menu |
 
@@ -65,6 +66,9 @@ set -g @proj_key 'P'
 
 # Popup key binding (default: C-p)
 set -g @proj_popup_key 'C-p'
+
+# Window popup key binding (default: C-w)
+set -g @proj_window_key 'C-w'
 
 # Auto create sessions when switching (default: on)
 set -g @proj_auto_session 'on'
@@ -81,17 +85,30 @@ set -g @proj_window_format '#{branch}'
 
 ## Usage
 
-### Project Management
+### Unified Popup Interface
 
-1. **Open Project Menu**: Press `Prefix + P` to see a menu of available projects
-2. **Quick Project Popup**: Press `Prefix + Ctrl+P` for an fzf-powered project picker
-3. **Session Switching**: Press `Prefix + S` for enhanced session management
+Both `Prefix + Ctrl+P` and `Prefix + Ctrl+W` use identical interfaces supporting:
 
-### Workspace Management
+**Query Patterns:**
+- `myproject` → Search for projects matching "myproject"
+- `org/project` → Select specific project
+- `org/project:workspace` → Select specific workspace in project
+- `:workspace` → Search all workspaces
 
-1. **Open Workspace Menu**: Press `Prefix + W` to manage workspaces in current project
-2. **Create New Workspace**: Use the workspace menu to create new workspaces
-3. **Switch Workspaces**: Select workspace windows directly from the menu
+**Key Bindings:**
+- **Tab**: Complete current selection into query (stays in popup)
+- **Enter**: Validate selection and execute action
+- **Esc**: Cancel and close popup
+
+**The Difference:**
+- **Ctrl+P**: Creates/switches to tmux **sessions**
+- **Ctrl+W**: Creates/switches to tmux **windows** (pre-fills current project if detected)
+
+### Traditional Management
+
+1. **Project Menu**: Press `Prefix + P` for menu-based project selection
+2. **Session Switching**: Press `Prefix + S` for enhanced session management  
+3. **Workspace Menu**: Press `Prefix + W` to manage workspaces in current project
 
 ### Status Bar Integration
 
@@ -115,17 +132,25 @@ set -g status-right "#{@proj_status} [%Y-%m-%d %H:%M]"
 3. Use `Prefix + W` to create and switch between workspace windows
 4. Each workspace window is set to the correct workspace directory
 
-### Combined Workspace Creation
+### Workflow Examples
 
 ```bash
+# Example 1: Create a new session for a project
+# Press Prefix + Ctrl+P, type "gfanton/myproject", press Enter
+# → Creates session "proj-gfanton-myproject"
+
+# Example 2: Create a workspace window in current project  
+# Press Prefix + Ctrl+W (auto-fills current project)
+# Type ":feature", press Tab to complete, press Enter
+# → Creates window for "feature" workspace
+
+# Example 3: Quick workspace access across projects
+# Press Prefix + Ctrl+W, type "other/project:dev", press Enter  
+# → Creates window for "dev" workspace in "other/project"
+
 # Traditional approach (2 commands)
 proj workspace add feature org/project
 proj-tmux window create feature org/project
-
-# Or create a shell function for convenience
-workspace-tmux() {
-    proj workspace add "$1" "$2" && proj-tmux window create "$1" "$2"
-}
 ```
 
 ## Troubleshooting

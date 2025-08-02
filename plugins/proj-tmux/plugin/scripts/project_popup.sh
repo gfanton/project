@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Project picker popup using tmux display-popup with fzf
+# Project/Workspace picker popup using tmux display-popup with fzf
+# Creates tmux sessions based on selection
 
 set -euo pipefail
 
@@ -112,15 +113,11 @@ show_project_popup() {
     fi
     
     log_debug "Executing tmux display-popup"
-    # Use tmux display-popup to show the project picker
-    # Create a simple popup command that works reliably
-    local popup_cmd='proj list | sed "s/ - \[.*\]$//" | fzf --prompt="⚡ Select project: " --height=80%'
-    popup_cmd="$popup_cmd --border=rounded --reverse --cycle"
-    popup_cmd="$popup_cmd --header=\"Navigate: ↑↓ | Select: Enter | Cancel: Esc\""
-    popup_cmd="$popup_cmd | xargs -I {} bash -c 'cd ~/code && proj-tmux session create \"{}\"'"
+    # Use simplified wrapper script
+    local popup_cmd="$(dirname "$0")/session_picker.sh"
     
     if tmux display-popup -E -w 90% -h 80% -d "#{pane_current_path}" \
-        -T 'Project Selection' \
+        -T 'Project/Workspace Selection (Session)' \
         "$popup_cmd"; then
         log_info "Popup executed successfully"
     else
@@ -141,19 +138,17 @@ show_simple_menu() {
 # Main execution
 main() {
     log_info "Starting main execution with args: $*"
-    if check_fzf; then
-        if ! show_project_popup; then
-            local exit_code=$?
-            log_error "show_project_popup failed with exit code: $exit_code"
-            return $exit_code
-        fi
-    else
-        log_info "fzf not available, falling back to simple menu"
-        if ! show_simple_menu; then
-            local exit_code=$?
-            log_error "show_simple_menu failed with exit code: $exit_code"
-            return $exit_code
-        fi
+    # Always use fzf popup unless fzf is not available
+    if ! check_fzf; then
+        log_error "fzf not available"
+        tmux display-message "Error: fzf is required for project selection. Please install fzf."
+        return 1
+    fi
+    
+    if ! show_project_popup; then
+        local exit_code=$?
+        log_error "show_project_popup failed with exit code: $exit_code"
+        return $exit_code
     fi
     log_info "Main execution completed successfully"
 }

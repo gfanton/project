@@ -8,6 +8,7 @@ SCRIPTS_DIR="$CURRENT_DIR/scripts"
 # Default configuration
 default_proj_key="P"
 default_proj_popup_key="C-p"
+default_proj_window_key="C-w"
 default_proj_auto_session="on"
 default_proj_show_status="on"
 default_proj_session_format="proj-#{org}-#{name}"
@@ -35,6 +36,9 @@ setup_user_options() {
     # Popup key binding (default: C-p)
     tmux set-option -gq "@proj_popup_key" "$(tmux_option "@proj_popup_key" "$default_proj_popup_key")"
 
+    # Window popup key binding (default: C-w)
+    tmux set-option -gq "@proj_window_key" "$(tmux_option "@proj_window_key" "$default_proj_window_key")"
+
     # Auto create sessions (default: on)
     tmux set-option -gq "@proj_auto_session" "$(tmux_option "@proj_auto_session" "$default_proj_auto_session")"
 
@@ -50,16 +54,20 @@ setup_user_options() {
 
 # Set up key bindings
 setup_key_bindings() {
-    local proj_key proj_popup_key
+    local proj_key proj_popup_key proj_window_key
 
     proj_key=$(tmux_option "@proj_key" "$default_proj_key")
     proj_popup_key=$(tmux_option "@proj_popup_key" "$default_proj_popup_key")
+    proj_window_key=$(tmux_option "@proj_window_key" "$default_proj_window_key")
 
     # Main project menu (Prefix + P)
     tmux bind-key "$proj_key" run-shell "$SCRIPTS_DIR/project_menu.sh"
 
-    # Quick project popup (Prefix + Ctrl+P)
+    # Quick project popup (Prefix + Ctrl+P) - for sessions
     tmux bind-key "$proj_popup_key" run-shell "$SCRIPTS_DIR/project_popup.sh"
+
+    # Quick workspace popup (Prefix + Ctrl+W) - for windows
+    tmux bind-key "$proj_window_key" run-shell "$SCRIPTS_DIR/window_popup.sh"
 
     # Session switcher (Prefix + S) - override default
     tmux bind-key "S" run-shell "$SCRIPTS_DIR/session_switcher.sh"
