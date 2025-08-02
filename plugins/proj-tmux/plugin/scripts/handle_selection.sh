@@ -17,18 +17,18 @@ if [[ "$selection" == *:* ]]; then
     
     if [[ "$action" == "session" ]]; then
         # Create session and then create window for workspace
-        proj-tmux session create "$project" && \
-        proj-tmux window create "$workspace" "$project"
+        proj-tmux session create "$project" >/dev/null 2>&1 && \
+        proj-tmux window create "$workspace" "$project" >/dev/null 2>&1
     else
         # Create window for workspace
-        proj-tmux window create "$workspace" "$project"
+        proj-tmux window create "$workspace" "$project" >/dev/null 2>&1
     fi
 else
     # Handle plain project
     if [[ "$action" == "session" ]]; then
-        proj-tmux session create "$selection"
+        proj-tmux session create "$selection" >/dev/null 2>&1
     else
         # For windows, create a main window (requires session to exist)
-        proj-tmux window create main "$selection"
+        proj-tmux window create main "$selection" >/dev/null 2>&1
     fi
 fi

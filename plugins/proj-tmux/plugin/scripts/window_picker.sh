@@ -31,12 +31,16 @@ get_current_project() {
 # Get current project for pre-population
 current_project=$(get_current_project)
 initial_query=""
+initial_input="proj list | sed 's/ - \[.*\]$//'"
+
 if [[ -n "$current_project" ]]; then
     initial_query="${current_project}:"
+    # If we have a current project, start with workspace results
+    initial_input="proj query --limit 50 '$initial_query' 2>/dev/null || echo 'Type workspace name after :'"
 fi
 
 # Configure fzf
-selection=$(proj list | sed 's/ - \[.*\]$//' | fzf \
+selection=$(eval "$initial_input" | fzf \
     --prompt='⚡ Project/Workspace (window): ' \
     --height=80% \
     --border=rounded \
