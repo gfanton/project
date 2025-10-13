@@ -28,7 +28,7 @@
         pkgs = nixpkgs.legacyPackages.${system};
 
         # Define project package
-        projectPackage = pkgs.buildGo123Module rec {
+        projectPackage = pkgs.buildGoModule rec {
           pname = "project";
           version = projectVersion;
 
@@ -53,7 +53,7 @@
           nativeBuildInputs = with pkgs; [
             git
             zsh
-            bats
+            # bats  # Temporarily disabled due to nokogiri build issue in nixpkgs-unstable
             expect
           ];
 
@@ -88,7 +88,7 @@
         };
 
         # Define proj-tmux package
-        projTmuxPackage = pkgs.buildGo123Module rec {
+        projTmuxPackage = pkgs.buildGoModule rec {
           pname = "proj-tmux";
           version = projectVersion;
 
@@ -128,15 +128,15 @@
 
           # Dependencies - the plugin needs proj and proj-tmux binaries
           buildInputs = [ projectPackage projTmuxPackage ];
-          
+
           # Wrap the scripts to have access to the binaries
           nativeBuildInputs = [ pkgs.makeWrapper ];
-          
+
           postInstall = ''
             # Wrap the main plugin script
             wrapProgram $out/share/tmux-plugins/tmux-proj/proj-tmux.tmux \
               --prefix PATH : ${pkgs.lib.makeBinPath [ projectPackage projTmuxPackage ]}
-            
+
             # Wrap all scripts in the scripts directory
             for script in $out/share/tmux-plugins/tmux-proj/scripts/*.sh; do
               wrapProgram "$script" \
@@ -166,14 +166,14 @@
         devShells.default = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Go toolchain
-            go_1_23
+            go_1_25
 
             # Shells for testing
             bash
             zsh
 
             # Testing tools
-            bats
+            # bats  # Temporarily disabled due to nokogiri build issue in nixpkgs-unstable
             expect
             tmux
 
@@ -210,12 +210,12 @@
         devShells.testing = pkgs.mkShell {
           buildInputs = with pkgs; [
             # Go toolchain
-            go_1_23
+            go_1_25
 
             # Testing frameworks and tools
             tmux
             expect
-            bats
+            # bats  # Temporarily disabled due to nokogiri build issue in nixpkgs-unstable
 
             # Shell environments
             bash
@@ -312,8 +312,8 @@
       overlays.default = final: prev: {
         # Make project packages available in nixpkgs
         project = final.callPackage (
-          { buildGo123Module }:
-          buildGo123Module rec {
+          { buildGoModule }:
+          buildGoModule rec {
             pname = "project";
             version = projectVersion;
             src = ./.;
@@ -341,16 +341,16 @@
           version = projectVersion;
           rtpFilePath = "proj-tmux.tmux";
           src = ./plugins/proj-tmux/plugin;
-          
+
           # Dependencies - the plugin needs proj and proj-tmux binaries
           buildInputs = [ final.project ];
           nativeBuildInputs = [ final.makeWrapper ];
-          
+
           postInstall = ''
             # Note: The consuming nixpkgs config should ensure proj is in PATH
             # This plugin expects proj and proj-tmux to be available
           '';
-          
+
           meta = with final.lib; {
             description = "A tmux plugin for proj - Git-based project management with session integration";
             homepage = "https://github.com/gfanton/project";
