@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -33,9 +34,131 @@ func (s *WorkspaceService) WorkspacePath(proj Project, branch string) string {
 	return filepath.Join(s.WorkspaceDir(), proj.Organisation, fmt.Sprintf("%s.%s", proj.Name, branch))
 }
 
+// isPullRequest checks if the branch string is a PR number (#123 format)
+func (s *WorkspaceService) isPullRequest(branch string) (int, bool) {
+	if !strings.HasPrefix(branch, "#") {
+		return 0, false
+	}
+
+	prNumStr := strings.TrimPrefix(branch, "#")
+	prNum, err := strconv.Atoi(prNumStr)
+	if err != nil {
+		return 0, false
+	}
+
+	return prNum, true
+}
+
+// getDefaultRemote returns the first available remote, preferring 'origin'
+func (s *WorkspaceService) getDefaultRemote(ctx context.Context, proj Project) (string, error) {
+	cmd := exec.CommandContext(ctx, "git", "remote")
+	cmd.Dir = proj.Path
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", fmt.Errorf("failed to list remotes: %w", err)
+	}
+
+	remotes := strings.Fields(strings.TrimSpace(string(output)))
+	if len(remotes) == 0 {
+		return "", fmt.Errorf("no git remotes found")
+	}
+
+	// Prefer 'origin' if it exists
+	for _, remote := range remotes {
+		if remote == "origin" {
+			return remote, nil
+		}
+	}
+
+	// Otherwise return the first remote
+	return remotes[0], nil
+}
+
+// validatePullRequest checks if a PR exists by trying to fetch its ref
+func (s *WorkspaceService) validatePullRequest(ctx context.Context, proj Project, prNum int) error {
+	s.logger.Debug("validating pull request", "project", proj.Name, "pr", prNum)
+
+	remote, err := s.getDefaultRemote(ctx, proj)
+	if err != nil {
+		return fmt.Errorf("failed to get remote: %w", err)
+	}
+
+	// Try to fetch the PR ref to validate it exists
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", remote, fmt.Sprintf("refs/pull/%d/head", prNum))
+	cmd.Dir = proj.Path
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to validate PR #%d: %w\nOutput: %s", prNum, err, string(output))
+	}
+
+	if strings.TrimSpace(string(output)) == "" {
+		return fmt.Errorf("pull request #%d does not exist", prNum)
+	}
+
+	s.logger.Debug("pull request validated", "pr", prNum)
+	return nil
+}
+
+// addPullRequestWorkspace creates a workspace for a pull request
+func (s *WorkspaceService) addPullRequestWorkspace(ctx context.Context, proj Project, prNum int, branch string) error {
+	s.logger.Debug("adding pull request workspace", "project", proj.Name, "pr", prNum)
+
+	// First validate that the PR exists
+	if err := s.validatePullRequest(ctx, proj, prNum); err != nil {
+		return err
+	}
+
+	remote, err := s.getDefaultRemote(ctx, proj)
+	if err != nil {
+		return fmt.Errorf("failed to get remote: %w", err)
+	}
+
+	workspacePath := s.WorkspacePath(proj, branch)
+
+	if _, err := os.Stat(workspacePath); err == nil {
+		return fmt.Errorf("workspace already exists: %s", workspacePath)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(workspacePath), 0755); err != nil {
+		return fmt.Errorf("failed to create workspace directory: %w", err)
+	}
+
+	// Fetch the PR ref first
+	prRef := fmt.Sprintf("refs/pull/%d/head", prNum)
+	localBranch := fmt.Sprintf("pr-%d", prNum)
+
+	s.logger.Debug("fetching pull request", "ref", prRef, "local_branch", localBranch)
+
+	// Fetch the PR ref
+	cmd := exec.CommandContext(ctx, "git", "fetch", remote, fmt.Sprintf("%s:%s", prRef, localBranch))
+	cmd.Dir = proj.Path
+
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to fetch PR #%d: %w\nOutput: %s", prNum, err, string(output))
+	}
+
+	// Create worktree with the fetched PR branch
+	cmd = exec.CommandContext(ctx, "git", "worktree", "add", workspacePath, localBranch)
+	cmd.Dir = proj.Path
+
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create worktree for PR #%d: %w\nOutput: %s", prNum, err, string(output))
+	}
+
+	s.logger.Info("workspace created for pull request", "path", workspacePath, "pr", prNum, "branch", localBranch)
+	return nil
+}
+
 // Add creates a new workspace for the given project and branch.
 func (s *WorkspaceService) Add(ctx context.Context, proj Project, branch string) error {
 	s.logger.Debug("adding workspace", "project", proj.Name, "org", proj.Organisation, "branch", branch)
+
+	// Check if this is a pull request
+	if prNum, isPR := s.isPullRequest(branch); isPR {
+		return s.addPullRequestWorkspace(ctx, proj, prNum, branch)
+	}
 
 	workspacePath := s.WorkspacePath(proj, branch)
 

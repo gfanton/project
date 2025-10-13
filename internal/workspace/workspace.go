@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/gfanton/projects/internal/project"
@@ -38,8 +39,94 @@ func (s *Service) WorkspacePath(proj project.Project, branch string) string {
 	return filepath.Join(s.WorkspaceDir(), proj.Organisation, fmt.Sprintf("%s.%s", proj.Name, branch))
 }
 
+// isPullRequest checks if the branch string is a PR number (#123 format)
+func (s *Service) isPullRequest(branch string) (int, bool) {
+	if !strings.HasPrefix(branch, "#") {
+		return 0, false
+	}
+
+	prNumStr := strings.TrimPrefix(branch, "#")
+	prNum, err := strconv.Atoi(prNumStr)
+	if err != nil {
+		return 0, false
+	}
+
+	return prNum, true
+}
+
+// validatePullRequest checks if a PR exists by trying to fetch its ref
+func (s *Service) validatePullRequest(ctx context.Context, proj project.Project, prNum int) error {
+	s.logger.Debug("validating pull request", "project", proj.Name, "pr", prNum)
+
+	// Try to fetch the PR ref to validate it exists
+	cmd := exec.CommandContext(ctx, "git", "ls-remote", "origin", fmt.Sprintf("refs/pull/%d/head", prNum))
+	cmd.Dir = proj.Path
+
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to validate PR #%d: %w\nOutput: %s", prNum, err, string(output))
+	}
+
+	if strings.TrimSpace(string(output)) == "" {
+		return fmt.Errorf("pull request #%d does not exist", prNum)
+	}
+
+	s.logger.Debug("pull request validated", "pr", prNum)
+	return nil
+}
+
+// addPullRequestWorkspace creates a workspace for a pull request
+func (s *Service) addPullRequestWorkspace(ctx context.Context, proj project.Project, prNum int, branch string) error {
+	s.logger.Debug("adding pull request workspace", "project", proj.Name, "pr", prNum)
+
+	// First validate that the PR exists
+	if err := s.validatePullRequest(ctx, proj, prNum); err != nil {
+		return err
+	}
+
+	workspacePath := s.WorkspacePath(proj, branch)
+
+	if _, err := os.Stat(workspacePath); err == nil {
+		return fmt.Errorf("workspace already exists: %s", workspacePath)
+	}
+
+	if err := os.MkdirAll(filepath.Dir(workspacePath), 0755); err != nil {
+		return fmt.Errorf("failed to create workspace directory: %w", err)
+	}
+
+	// Fetch the PR ref first
+	prRef := fmt.Sprintf("refs/pull/%d/head", prNum)
+	localBranch := fmt.Sprintf("pr-%d", prNum)
+
+	s.logger.Debug("fetching pull request", "ref", prRef, "local_branch", localBranch)
+
+	// Fetch the PR ref
+	cmd := exec.CommandContext(ctx, "git", "fetch", "origin", fmt.Sprintf("%s:%s", prRef, localBranch))
+	cmd.Dir = proj.Path
+
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to fetch PR #%d: %w\nOutput: %s", prNum, err, string(output))
+	}
+
+	// Create worktree with the fetched PR branch
+	cmd = exec.CommandContext(ctx, "git", "worktree", "add", workspacePath, localBranch)
+	cmd.Dir = proj.Path
+
+	if output, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to create worktree for PR #%d: %w\nOutput: %s", prNum, err, string(output))
+	}
+
+	s.logger.Info("workspace created for pull request", "path", workspacePath, "pr", prNum, "branch", localBranch)
+	return nil
+}
+
 func (s *Service) Add(ctx context.Context, proj project.Project, branch string) error {
 	s.logger.Debug("adding workspace", "project", proj.Name, "org", proj.Organisation, "branch", branch)
+
+	// Check if this is a pull request
+	if prNum, isPR := s.isPullRequest(branch); isPR {
+		return s.addPullRequestWorkspace(ctx, proj, prNum, branch)
+	}
 
 	workspacePath := s.WorkspacePath(proj, branch)
 

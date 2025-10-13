@@ -7,10 +7,10 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/gfanton/projects/internal/config"
 	"github.com/gfanton/projects/internal/git"
 	"github.com/gfanton/projects/internal/project"
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 type getConfig struct {

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/go-git/go-git/v5"
 	"github.com/gfanton/projects/internal/project"
+	"github.com/go-git/go-git/v5"
 )
 
 func setupBenchmarkProjects(b *testing.B, numProjects int) (string, func()) {

@@ -7,9 +7,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/gfanton/projects"
 	"github.com/gfanton/projects/internal/config"
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 func main() {

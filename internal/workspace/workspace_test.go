@@ -320,6 +320,38 @@ func hasGitCommand() bool {
 	return err == nil
 }
 
+func TestService_isPullRequest(t *testing.T) {
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	svc := NewService(logger, "/test/root")
+
+	tests := []struct {
+		branch   string
+		expected bool
+		prNum    int
+	}{
+		{"#123", true, 123},
+		{"#456", true, 456},
+		{"#1", true, 1},
+		{"feature-branch", false, 0},
+		{"#", false, 0},
+		{"#abc", false, 0},
+		{"", false, 0},
+		{"123", false, 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.branch, func(t *testing.T) {
+			prNum, isPR := svc.isPullRequest(tt.branch)
+			if isPR != tt.expected {
+				t.Errorf("isPullRequest(%q) = %v, want %v", tt.branch, isPR, tt.expected)
+			}
+			if isPR && prNum != tt.prNum {
+				t.Errorf("isPullRequest(%q) prNum = %d, want %d", tt.branch, prNum, tt.prNum)
+			}
+		})
+	}
+}
+
 func runGitCommand(dir string, args ...string) error {
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir

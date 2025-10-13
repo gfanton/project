@@ -8,8 +8,8 @@ import (
 	"os"
 	"strings"
 
-	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/gfanton/projects"
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 func newWindowCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {

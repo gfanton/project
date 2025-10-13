@@ -123,13 +123,27 @@ func (s *ProjectService) ListProjects() ([]*Project, error) {
 }
 
 // Walk traverses the root directory and calls fn for each project found.
+// It follows symlinks to directories to support projects added via symlinks.
 func (s *ProjectService) Walk(fn WalkFunc) error {
 	return filepath.WalkDir(s.config.RootDir, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		if !d.IsDir() {
+		// Handle both regular directories and symlinks to directories
+		isDir := d.IsDir()
+
+		// If it's not a regular directory, check if it's a symlink to a directory
+		if !isDir && d.Type()&fs.ModeSymlink != 0 {
+			info, err := os.Stat(path) // Follow the symlink
+			if err != nil {
+				// If we can't stat the symlink target, skip it
+				return nil
+			}
+			isDir = info.IsDir()
+		}
+
+		if !isDir {
 			return nil
 		}
 

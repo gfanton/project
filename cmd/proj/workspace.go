@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/gfanton/projects"
 	"github.com/gfanton/projects/internal/config"
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 func newWorkspaceCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
@@ -23,9 +23,9 @@ func newWorkspaceCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *p
 Workspaces are created in <projects_root>/.workspace/<org>/<name>.<branch>/
 
 Commands:
-  add <branch> [project]     Add new workspace
-  remove <branch> [project]  Remove workspace
-  list [project]             List workspaces
+  add <branch|#pr> [project]     Add new workspace (supports PR checkout with #123)
+  remove <branch> [project]      Remove workspace
+  list [project]                 List workspaces
 
 When inside a project directory, the project parameter is optional.
 When outside a project directory, the project parameter is required.`,
@@ -43,12 +43,18 @@ When outside a project directory, the project parameter is required.`,
 func newWorkspaceAddCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
 	return &ffcli.Command{
 		Name:       "add",
-		ShortUsage: "workspace add <branch> [project]",
+		ShortUsage: "workspace add <branch|#pr> [project]",
 		ShortHelp:  "Add new workspace",
 		LongHelp: `Add a new git worktree workspace.
 
 The branch parameter specifies which branch to checkout in the workspace.
-If the project parameter is not provided, the current directory must be inside a project.`,
+You can also checkout a pull request by using #<number> format (e.g., #123).
+
+If the project parameter is not provided, the current directory must be inside a project.
+
+Examples:
+  proj workspace add feature-branch     # Create workspace for branch
+  proj workspace add #123               # Create workspace for PR #123`,
 		Exec: func(ctx context.Context, args []string) error {
 			if len(args) < 1 {
 				return errors.New("branch name is required")

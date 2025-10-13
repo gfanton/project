@@ -9,8 +9,8 @@ import (
 	"os/exec"
 	"strings"
 
-	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/gfanton/projects"
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 func newStatusCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {

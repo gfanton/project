@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-git/go-git/v5"
 	"github.com/gfanton/projects/internal/project"
+	"github.com/go-git/go-git/v5"
 )
 
 func setupTestProjects(t *testing.T) (string, func()) {

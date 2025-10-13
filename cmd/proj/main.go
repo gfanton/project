@@ -8,9 +8,9 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/peterbourgon/ff/v3/ffcli"
 	"github.com/gfanton/projects"
 	"github.com/gfanton/projects/internal/config"
+	"github.com/peterbourgon/ff/v3/ffcli"
 )
 
 type rootConfig struct {
@@ -65,6 +65,7 @@ Use 'proj <subcommand> -h' for more information about a specific command.`,
 			newInitCommand(logger, cfg),
 			newListCommand(logger, cfg, projectsCfg, projectsLogger),
 			newNewCommand(logger, cfg),
+			newAddCommand(logger, cfg),
 			newGetCommand(logger, cfg),
 			newQueryCommand(logger, cfg, projectsCfg, projectsLogger),
 			newWorkspaceCommand(logger, cfg, projectsCfg, projectsLogger),
