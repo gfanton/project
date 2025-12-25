@@ -207,6 +207,17 @@ func (s *Service) List(ctx context.Context, proj project.Project) ([]Workspace, 
 	return s.parseWorktreeList(proj, string(output))
 }
 
+// extractBranchFromPath extracts branch from workspace directory name.
+// e.g., path ".workspace/org/project.feature" with projectName "project" -> "feature"
+func extractBranchFromPath(workspacePath, projectName string) string {
+	base := filepath.Base(workspacePath)
+	prefix := projectName + "."
+	if strings.HasPrefix(base, prefix) {
+		return strings.TrimPrefix(base, prefix)
+	}
+	return ""
+}
+
 func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Workspace, error) {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	var workspaces []Workspace
@@ -224,13 +235,12 @@ func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Work
 
 		if strings.HasPrefix(line, "worktree ") {
 			path := strings.TrimPrefix(line, "worktree ")
+			branch := extractBranchFromPath(path, proj.Name)
 			currentWorkspace = &Workspace{
 				Project: proj,
 				Path:    path,
+				Branch:  branch,
 			}
-		} else if strings.HasPrefix(line, "branch ") && currentWorkspace != nil {
-			branch := strings.TrimPrefix(line, "branch ")
-			currentWorkspace.Branch = strings.TrimPrefix(branch, "refs/heads/")
 		}
 	}
 

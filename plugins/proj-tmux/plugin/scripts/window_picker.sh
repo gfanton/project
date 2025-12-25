@@ -10,10 +10,20 @@ get_current_project() {
     # First try to get from tmux session
     local current_session
     current_session=$(tmux display-message -p '#{session_name}' 2>/dev/null || echo "")
-    
+
     if [[ "$current_session" == proj-* ]]; then
-        # Extract project from session name: proj-org-name -> org/name
+        # Extract project from session name
         local remainder="${current_session#proj-}"
+
+        # New format: proj-org_name (underscore separator)
+        if [[ "$remainder" == *_* ]]; then
+            local org="${remainder%%_*}"
+            local name="${remainder#*_}"
+            echo "${org}/${name}"
+            return 0
+        fi
+
+        # Legacy format fallback: proj-org-name (hyphen separator, ambiguous)
         local parts=(${remainder//-/ })
         if [[ ${#parts[@]} -ge 2 ]]; then
             local name="${parts[-1]}"
@@ -23,9 +33,16 @@ get_current_project() {
             return 0
         fi
     fi
-    
-    # Fall back to current directory
-    proj-tmux session current 2>/dev/null | grep "Current directory project:" | cut -d':' -f2 | xargs || echo ""
+
+    # Fall back to proj-tmux session current command
+    local result
+    result=$(proj-tmux session current 2>/dev/null | grep -E "Current (project session|directory project):" | cut -d':' -f2 | xargs)
+    if [[ -n "$result" ]]; then
+        echo "$result"
+        return 0
+    fi
+
+    echo ""
 }
 
 # Get current project for pre-population
@@ -50,7 +67,7 @@ selection=$(eval "$initial_input" | fzf \
     --bind='tab:replace-query' \
     --bind='enter:accept' \
     --bind='esc:cancel' \
-    --bind='change:reload:proj query --limit 50 {q} 2>/dev/null || proj list | sed "s/ - \[.*\]$//"' \
+    --bind='change:reload:proj query --limit 50 -- "{q}" 2>/dev/null || proj list | sed "s/ - \[.*\]$//"' \
     --query="$initial_query" \
 )
 

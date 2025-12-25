@@ -507,57 +507,54 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 		{
 			name:  "exact project name match",
 			query: "foo",
+			// With new algorithm: exact project name match (1) > exact org match (2) > substring
 			expectedOrder: []string{
-				"foo/foo-lib",           // distance: 9 (contains in both org and name)
-				"foobar/foo",            // distance: 9 (contains in name, exact match gets +2)
-				"foobar/foo-test",       // distance: 27 (contains in name)
-				"foobar/awesome-foo",    // distance: 33 (contains in name)
-				"foobar/foo-by-example", // distance: 39 (contains in name)
-				"foo/bar",               // distance: 55 (contains in org only)
+				"foobar/foo",  // distance: 1 (exact project name match)
+				"foo/bar",     // distance: 2 (exact org match)
+				"foo/foo-lib", // distance: 2 (exact org match)
 			},
-			expectedFirst: "foo/foo-lib", // Alphabetically first among tied distance
-			minResults:    6,
+			expectedFirst: "foobar/foo",
+			minResults:    3,
 		},
 		{
 			name:  "exact org match",
 			query: "foobar",
+			// All foobar/* projects get distance=2 (exact org match), sorted alphabetically
 			expectedOrder: []string{
-				"foobar/baz",            // distance: 55 (contains in org, exact org match gets +1)
-				"foobar/foo",            // distance: 55 (same)
-				"foobar/project",        // distance: 59
-				"foobar/foo-test",       // distance: 60
-				"foobar/awesome-foo",    // distance: 63
-				"foobar/foo-by-example", // distance: 66
+				"foobar/awesome-foo",
+				"foobar/baz",
+				"foobar/foo",
+				"foobar/foo-by-example",
+				"foobar/foo-test",
+				"foobar/project",
 			},
-			expectedFirst: "foobar/baz", // First alphabetically among same distance
+			expectedFirst: "foobar/awesome-foo", // First alphabetically among same distance
 			minResults:    6,
 		},
 		{
-			name:  "substring match prioritizes shorter strings",
+			name:  "exact project name match takes priority",
 			query: "foo",
+			// "foobar/foo" has exact project name match (distance=1)
+			// "foo/bar" and "foo/foo-lib" have exact org match (distance=2)
 			expectedOrder: []string{
-				"foo/foo-lib",     // distance: 9
-				"foobar/foo",      // distance: 9
-				"foobar/foo-test", // distance: 27
+				"foobar/foo",  // distance: 1 (exact project name match)
+				"foo/bar",     // distance: 2 (exact org match, alphabetically first)
+				"foo/foo-lib", // distance: 2 (exact org match)
 			},
-			expectedFirst: "foo/foo-lib",
+			expectedFirst: "foobar/foo",
 			minResults:    3,
 		},
 		{
 			name:  "project name substring vs org substring",
 			query: "foo",
-			// Project name substring should rank higher than org substring
+			// Exact project name match > exact org match > substring in name > substring in org
 			expectedOrder: []string{
-				"foo/foo-lib",           // distance: 9
-				"foobar/foo",            // distance: 9
-				"foobar/foo-test",       // distance: 27
-				"foobar/awesome-foo",    // distance: 33
-				"foobar/foo-by-example", // distance: 39
-				"foo/bar",               // distance: 55
-				"foobar/baz",            // distance: 67
+				"foobar/foo",  // distance: 1 (exact project name match)
+				"foo/bar",     // distance: 2 (exact org match)
+				"foo/foo-lib", // distance: 2 (exact org match)
 			},
-			expectedFirst: "foo/foo-lib",
-			minResults:    7,
+			expectedFirst: "foobar/foo",
+			minResults:    3,
 		},
 		{
 			name:  "single character should work",
@@ -568,12 +565,13 @@ func TestSearchRankingAlgorithm(t *testing.T) {
 		{
 			name:  "case insensitive matching",
 			query: "FOO",
+			// Case insensitive: exact project name match > exact org match
 			expectedOrder: []string{
-				"foo/foo-lib", // Should match despite case difference
-				"foobar/foo",
-				"foobar/foo-test",
+				"foobar/foo",  // Exact project name match (case insensitive)
+				"foo/bar",     // Exact org match (case insensitive)
+				"foo/foo-lib", // Exact org match (case insensitive)
 			},
-			expectedFirst: "foo/foo-lib",
+			expectedFirst: "foobar/foo",
 			minResults:    3,
 		},
 		{

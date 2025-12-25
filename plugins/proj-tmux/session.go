@@ -254,15 +254,16 @@ func runSessionSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 	return tmuxSvc.SwitchSession(ctx, sessionName)
 }
 
-// generateSessionName creates a tmux session name from a project
+// generateSessionName creates a tmux session name from a project.
+// Format: proj-<org>_<name> (underscore separates org from name).
 func generateSessionName(project *projects.Project) string {
-	// Replace any characters that might cause issues in tmux session names
 	org := strings.ReplaceAll(project.Organisation, ".", "-")
 	name := strings.ReplaceAll(project.Name, ".", "-")
-	return fmt.Sprintf("proj-%s-%s", org, name)
+	return fmt.Sprintf("proj-%s_%s", org, name)
 }
 
-// extractProjectFromSession extracts project name from session name
+// extractProjectFromSession extracts project name from session name.
+// Handles both new format (proj-org_name) and legacy format (proj-org-name).
 func extractProjectFromSession(sessionName string) string {
 	if !strings.HasPrefix(sessionName, "proj-") {
 		return ""
@@ -271,7 +272,15 @@ func extractProjectFromSession(sessionName string) string {
 	// Remove "proj-" prefix
 	remainder := strings.TrimPrefix(sessionName, "proj-")
 
-	// Split by "-" and try to reconstruct org/name
+	// New format: split by underscore (unambiguous separator)
+	if strings.Contains(remainder, "_") {
+		parts := strings.SplitN(remainder, "_", 2)
+		if len(parts) == 2 {
+			return fmt.Sprintf("%s/%s", parts[0], parts[1])
+		}
+	}
+
+	// Legacy format fallback: split by hyphen (ambiguous for hyphenated orgs)
 	parts := strings.Split(remainder, "-")
 	if len(parts) < 2 {
 		return ""

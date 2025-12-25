@@ -16,7 +16,7 @@ selection=$(proj list | sed 's/ - \[.*\]$//' | fzf \
     --bind='tab:replace-query' \
     --bind='enter:accept' \
     --bind='esc:cancel' \
-    --bind='change:reload:proj query --limit 50 {q} 2>/dev/null || proj list | sed "s/ - \[.*\]$//"' \
+    --bind='change:reload:proj query --limit 50 -- "{q}" 2>/dev/null || proj list | sed "s/ - \[.*\]$//"' \
 )
 
 # Execute selection

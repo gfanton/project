@@ -49,14 +49,18 @@ func NewProjectService(config *Config, logger Logger) *ProjectService {
 // ParseProject parses a project name into a Project struct.
 // Supports formats: "project" (uses default user), "user/project".
 func (s *ProjectService) ParseProject(name string) (*Project, error) {
+	name = strings.TrimSpace(name)
 	split := strings.Split(name, string(os.PathSeparator))
 
 	switch len(split) {
 	case 1:
+		projectName := split[0]
+		if projectName == "" {
+			return nil, fmt.Errorf("project name is required")
+		}
 		if s.config.RootUser == "" {
 			return nil, fmt.Errorf("no default user defined and project name '%s' doesn't include user", name)
 		}
-		projectName := split[0]
 		projectPath := filepath.Join(s.config.RootDir, s.config.RootUser, projectName)
 		return &Project{
 			Path:         projectPath,
@@ -66,6 +70,12 @@ func (s *ProjectService) ParseProject(name string) (*Project, error) {
 
 	case 2:
 		user, projectName := split[0], split[1]
+		if user == "" {
+			return nil, fmt.Errorf("user/org name is required in '%s'", name)
+		}
+		if projectName == "" {
+			return nil, fmt.Errorf("project name is required in '%s'", name)
+		}
 		projectPath := filepath.Join(s.config.RootDir, user, projectName)
 		return &Project{
 			Path:         projectPath,

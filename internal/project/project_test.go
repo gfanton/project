@@ -65,12 +65,8 @@ func TestParseProject(t *testing.T) {
 			rootDir:     "/root",
 			defaultUser: "defaultuser",
 			projectName: "",
-			expected: &Project{
-				Path:         "/root/defaultuser",
-				Name:         "",
-				Organisation: "defaultuser",
-			},
-			wantErr: false,
+			expected:    nil,
+			wantErr:     true, // Empty project names are now rejected
 		},
 	}
 

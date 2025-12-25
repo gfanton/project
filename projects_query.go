@@ -5,11 +5,20 @@ import (
 	"fmt"
 	"io/fs"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
+
+// pathsEqual compares paths with case-insensitivity on macOS/Windows.
+func pathsEqual(a, b string) bool {
+	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
+		return strings.EqualFold(a, b)
+	}
+	return a == b
+}
 
 // QueryService provides project querying functionality.
 type QueryService struct {
@@ -108,22 +117,17 @@ func (s *QueryService) searchProjects(ctx context.Context, opts SearchOptions, e
 				distance = fuzzy.RankMatchFold(qName, pName)
 			}
 		} else {
-			// TODO: improve this part to avoid multiple useless compare
-			if !strings.Contains(pOrg, qLower) {
-				distance += 100
-			}
-
-			if !strings.Contains(pName, qLower) {
-				distance += 50
-			}
-
-			switch qLower {
-			case pOrg:
-				distance += 1
-			case pName:
-				distance += 2
+			switch {
+			case qLower == pName:
+				distance = 1
+			case qLower == pOrg:
+				distance = 2
+			case strings.Contains(pName, qLower):
+				distance = 10 + fuzzy.RankMatchFold(qLower, pName)
+			case strings.Contains(pOrg, qLower):
+				distance = 20 + fuzzy.RankMatchFold(qLower, pOrg)
 			default:
-				distance += 3 + fuzzy.RankMatchFold(qLower, projectLower)
+				distance = 50 + fuzzy.RankMatchFold(qLower, projectLower)
 			}
 		}
 
@@ -172,9 +176,7 @@ func (s *QueryService) searchWorkspaces(ctx context.Context, opts SearchOptions,
 				return nil
 			}
 		} else if opts.CurrentProject != nil {
-			// If no project part specified but we have a current project context,
-			// only search within the current project
-			if p.Path != opts.CurrentProject.Path {
+			if !pathsEqual(p.Path, opts.CurrentProject.Path) {
 				return nil
 			}
 		}
