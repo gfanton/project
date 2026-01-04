@@ -230,6 +230,14 @@ func (s *WorkspaceService) Remove(ctx context.Context, proj Project, branch stri
 func (s *WorkspaceService) List(ctx context.Context, proj Project) ([]Workspace, error) {
 	s.logger.Debug("listing workspaces", "project", proj.Name, "org", proj.Organisation)
 
+	// Check if this is a git repository
+	gitDir := filepath.Join(proj.Path, ".git")
+	if _, err := os.Stat(gitDir); os.IsNotExist(err) {
+		// Not a git repository, return empty list
+		s.logger.Debug("not a git repository, skipping workspace list", "project", proj.Name)
+		return []Workspace{}, nil
+	}
+
 	cmd := exec.CommandContext(ctx, "git", "worktree", "list", "--porcelain")
 	cmd.Dir = proj.Path
 
