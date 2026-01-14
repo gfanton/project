@@ -687,6 +687,17 @@ func TestWorkspaceQuerying(t *testing.T) {
 		t.Fatalf("Failed to add workspace: %v", err)
 	}
 
+	// Add workspaces with slashed branch names (e.g., feat/auth)
+	err = service.workspaceService.Add(ctx, *webappProject, "feat/login")
+	if err != nil {
+		t.Fatalf("Failed to add slashed workspace: %v", err)
+	}
+
+	err = service.workspaceService.Add(ctx, *webappProject, "fix/issue/456")
+	if err != nil {
+		t.Fatalf("Failed to add deeply slashed workspace: %v", err)
+	}
+
 	tests := []struct {
 		name     string
 		query    string
@@ -708,19 +719,49 @@ func TestWorkspaceQuerying(t *testing.T) {
 		{
 			name:     "Query all workspaces for project",
 			query:    "webapp:",
-			expected: []string{"user1/webapp:bugfix-123", "user1/webapp:dev-branch", "user1/webapp:feature-auth"},
-			minCount: 3,
+			expected: []string{"user1/webapp:bugfix-123", "user1/webapp:dev-branch", "user1/webapp:feat/login", "user1/webapp:feature-auth", "user1/webapp:fix/issue/456"},
+			minCount: 5,
 		},
 		{
 			name:     "Query workspaces with partial project match",
 			query:    "user1:",
-			expected: []string{"user1/webapp:bugfix-123", "user1/webapp:dev-branch", "user1/webapp:feature-auth"},
-			minCount: 3,
+			expected: []string{"user1/webapp:bugfix-123", "user1/webapp:dev-branch", "user1/webapp:feat/login", "user1/webapp:feature-auth", "user1/webapp:fix/issue/456"},
+			minCount: 5,
 		},
 		{
 			name:     "Query workspace substring match",
 			query:    ":bug",
 			expected: []string{"user1/webapp:bugfix-123"},
+			minCount: 1,
+		},
+		{
+			name:     "Query slashed branch by partial name",
+			query:    ":login",
+			expected: []string{"user1/webapp:feat/login"},
+			minCount: 1,
+		},
+		{
+			name:     "Query slashed branch by prefix",
+			query:    ":feat",
+			expected: []string{"user1/webapp:feat/login", "user1/webapp:feature-auth"},
+			minCount: 2,
+		},
+		{
+			name:     "Query deeply nested slashed branch",
+			query:    ":456",
+			expected: []string{"user1/webapp:fix/issue/456"},
+			minCount: 1,
+		},
+		{
+			name:     "Query slashed branch by middle part",
+			query:    ":issue",
+			expected: []string{"user1/webapp:fix/issue/456"},
+			minCount: 1,
+		},
+		{
+			name:     "Query slashed branch with full path",
+			query:    "webapp:feat/login",
+			expected: []string{"user1/webapp:feat/login"},
 			minCount: 1,
 		},
 	}
@@ -781,6 +822,8 @@ func TestWorkspaceQuerying(t *testing.T) {
 	_ = service.workspaceService.Remove(ctx, *webappProject, "feature-auth", false)
 	_ = service.workspaceService.Remove(ctx, *webappProject, "dev-branch", false)
 	_ = service.workspaceService.Remove(ctx, *webappProject, "bugfix-123", false)
+	_ = service.workspaceService.Remove(ctx, *webappProject, "feat/login", false)
+	_ = service.workspaceService.Remove(ctx, *webappProject, "fix/issue/456", false)
 }
 
 func TestQueryExcludesDotDirectories(t *testing.T) {

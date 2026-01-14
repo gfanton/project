@@ -39,6 +39,68 @@ func TestService_WorkspacePath(t *testing.T) {
 	}
 }
 
+func TestExtractBranchFromPath(t *testing.T) {
+	tests := []struct {
+		name         string
+		workspacePath string
+		projectName  string
+		workspaceDir string
+		expected     string
+	}{
+		{
+			name:          "simple branch",
+			workspacePath: "/test/.workspace/testorg/testproject.feature",
+			projectName:   "testproject",
+			workspaceDir:  "/test/.workspace",
+			expected:      "feature",
+		},
+		{
+			name:          "slashed branch",
+			workspacePath: "/test/.workspace/testorg/testproject.feat/auth",
+			projectName:   "testproject",
+			workspaceDir:  "/test/.workspace",
+			expected:      "feat/auth",
+		},
+		{
+			name:          "deeply nested slashed branch",
+			workspacePath: "/test/.workspace/testorg/testproject.feature/deep/nested",
+			projectName:   "testproject",
+			workspaceDir:  "/test/.workspace",
+			expected:      "feature/deep/nested",
+		},
+		{
+			name:          "branch with multiple slashes",
+			workspacePath: "/test/.workspace/testorg/testproject.fix/issue/123",
+			projectName:   "testproject",
+			workspaceDir:  "/test/.workspace",
+			expected:      "fix/issue/123",
+		},
+		{
+			name:          "non-matching path",
+			workspacePath: "/other/path/testproject.feature",
+			projectName:   "testproject",
+			workspaceDir:  "/test/.workspace",
+			expected:      "",
+		},
+		{
+			name:          "wrong project name",
+			workspacePath: "/test/.workspace/testorg/otherproject.feature",
+			projectName:   "testproject",
+			workspaceDir:  "/test/.workspace",
+			expected:      "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := extractBranchFromPath(tt.workspacePath, tt.projectName, tt.workspaceDir)
+			if result != tt.expected {
+				t.Errorf("extractBranchFromPath() = %q, want %q", result, tt.expected)
+			}
+		})
+	}
+}
+
 func TestService_parseWorktreeList(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	tempDir := t.TempDir()
@@ -51,9 +113,10 @@ func TestService_parseWorktreeList(t *testing.T) {
 	}
 
 	tests := []struct {
-		name     string
-		output   string
-		expected int
+		name            string
+		output          string
+		expected        int
+		expectedBranches []string
 	}{
 		{
 			name: "single worktree",
@@ -62,7 +125,8 @@ HEAD abc123
 branch refs/heads/feature
 
 `,
-			expected: 1,
+			expected:         1,
+			expectedBranches: []string{"feature"},
 		},
 		{
 			name: "multiple worktrees",
@@ -79,12 +143,50 @@ HEAD ghi789
 branch refs/heads/bugfix
 
 `,
-			expected: 2, // Only workspace worktrees, not main repo
+			expected:         2, // Only workspace worktrees, not main repo
+			expectedBranches: []string{"feature", "bugfix"},
 		},
 		{
-			name:     "empty output",
-			output:   "",
-			expected: 0,
+			name:             "empty output",
+			output:           "",
+			expected:         0,
+			expectedBranches: nil,
+		},
+		{
+			name: "slashed branch names",
+			output: `worktree /test/repo
+HEAD def456
+branch refs/heads/main
+
+worktree /test/.workspace/testorg/testproject.feat/auth
+HEAD abc123
+branch refs/heads/feat/auth
+
+worktree /test/.workspace/testorg/testproject.fix/issue/123
+HEAD ghi789
+branch refs/heads/fix/issue/123
+
+`,
+			expected:         2,
+			expectedBranches: []string{"feat/auth", "fix/issue/123"},
+		},
+		{
+			name: "mixed simple and slashed branches",
+			output: `worktree /test/repo
+HEAD def456
+branch refs/heads/main
+
+worktree /test/.workspace/testorg/testproject.feature
+HEAD abc123
+branch refs/heads/feature
+
+worktree /test/.workspace/testorg/testproject.feat/login
+HEAD ghi789
+branch refs/heads/feat/login
+
+`,
+			expected:         2,
+			expectedBranches: []string{"feature", "feat/login"},
 		},
 	}
 
@@ -100,12 +202,17 @@ branch refs/heads/bugfix
 				t.Errorf("parseWorktreeList() got %d workspaces, want %d", len(workspaces), tt.expected)
 			}
 
-			for _, ws := range workspaces {
+			for i, ws := range workspaces {
 				if ws.Project.Name != proj.Name {
 					t.Errorf("workspace project name = %q, want %q", ws.Project.Name, proj.Name)
 				}
 				if ws.Project.Organisation != proj.Organisation {
 					t.Errorf("workspace project org = %q, want %q", ws.Project.Organisation, proj.Organisation)
+				}
+				if tt.expectedBranches != nil && i < len(tt.expectedBranches) {
+					if ws.Branch != tt.expectedBranches[i] {
+						t.Errorf("workspace[%d] branch = %q, want %q", i, ws.Branch, tt.expectedBranches[i])
+					}
 				}
 			}
 		})
@@ -312,6 +419,92 @@ func TestService_Integration(t *testing.T) {
 		if output, err := cmd.CombinedOutput(); err == nil && len(strings.TrimSpace(string(output))) > 0 {
 			t.Error("branch was not deleted")
 		}
+	})
+
+	// Test Add workspace with slashed branch name (e.g., feat/auth)
+	t.Run("AddSlashedBranch", func(t *testing.T) {
+		branchName := "feat/auth"
+		err := svc.Add(ctx, proj, branchName)
+		if err != nil {
+			t.Fatalf("Add() with slashed branch error = %v", err)
+		}
+
+		// Verify workspace directory exists
+		workspacePath := svc.WorkspacePath(proj, branchName)
+		if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
+			t.Errorf("workspace directory not created: %s", workspacePath)
+		}
+
+		// Verify List returns the workspace with correct branch name
+		workspaces, err := svc.List(ctx, proj)
+		if err != nil {
+			t.Fatalf("List() error = %v", err)
+		}
+
+		found := false
+		for _, ws := range workspaces {
+			if ws.Branch == branchName {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("List() did not return workspace with branch %q", branchName)
+			t.Logf("Found workspaces:")
+			for _, ws := range workspaces {
+				t.Logf("  - branch: %q, path: %s", ws.Branch, ws.Path)
+			}
+			// Debug: show git worktree list output
+			cmd := exec.CommandContext(ctx, "git", "worktree", "list", "--porcelain")
+			cmd.Dir = repoDir
+			if output, err := cmd.CombinedOutput(); err == nil {
+				t.Logf("git worktree list output:\n%s", string(output))
+			}
+		}
+
+		// Cleanup
+		_ = svc.Remove(ctx, proj, branchName, true)
+	})
+
+	// Test Add workspace with deeply nested slashed branch name
+	t.Run("AddDeeplyNestedSlashedBranch", func(t *testing.T) {
+		branchName := "fix/issue/123"
+		err := svc.Add(ctx, proj, branchName)
+		if err != nil {
+			t.Fatalf("Add() with deeply nested slashed branch error = %v", err)
+		}
+
+		// Verify workspace directory exists
+		workspacePath := svc.WorkspacePath(proj, branchName)
+		if _, err := os.Stat(workspacePath); os.IsNotExist(err) {
+			t.Errorf("workspace directory not created: %s", workspacePath)
+		}
+
+		// Verify List returns the workspace with correct branch name
+		workspaces, err := svc.List(ctx, proj)
+		if err != nil {
+			t.Fatalf("List() error = %v", err)
+		}
+
+		found := false
+		for _, ws := range workspaces {
+			if ws.Branch == branchName {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			t.Errorf("List() did not return workspace with branch %q", branchName)
+			t.Logf("Found workspaces:")
+			for _, ws := range workspaces {
+				t.Logf("  - branch: %q, path: %s", ws.Branch, ws.Path)
+			}
+		}
+
+		// Cleanup
+		_ = svc.Remove(ctx, proj, branchName, true)
 	})
 }
 

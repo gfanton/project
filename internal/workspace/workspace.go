@@ -215,13 +215,39 @@ func (s *Service) List(ctx context.Context, proj project.Project) ([]Workspace, 
 	return s.parseWorktreeList(proj, string(output))
 }
 
-// extractBranchFromPath extracts branch from workspace directory name.
+// extractBranchFromPath extracts branch from workspace directory path.
+// Handles branch names with slashes (e.g., feat/auth) which create subdirectories.
 // e.g., path ".workspace/org/project.feature" with projectName "project" -> "feature"
-func extractBranchFromPath(workspacePath, projectName string) string {
-	base := filepath.Base(workspacePath)
+// e.g., path ".workspace/org/project.feat/auth" with projectName "project" -> "feat/auth"
+func extractBranchFromPath(workspacePath, projectName, workspaceDir string) string {
+	// Resolve symlinks in both paths to handle macOS /var -> /private/var
+	if resolved, err := filepath.EvalSymlinks(workspacePath); err == nil {
+		workspacePath = resolved
+	}
+	if resolved, err := filepath.EvalSymlinks(workspaceDir); err == nil {
+		workspaceDir = resolved
+	}
+
+	// Get path relative to workspace dir
+	// workspacePath: /root/.workspace/org/project.feat/auth
+	// workspaceDir: /root/.workspace
+	// relPath: org/project.feat/auth
+	relPath, err := filepath.Rel(workspaceDir, workspacePath)
+	if err != nil {
+		return ""
+	}
+
+	// Split into org and the rest: ["org", "project.feat/auth"]
 	prefix := projectName + "."
-	if strings.HasPrefix(base, prefix) {
-		return strings.TrimPrefix(base, prefix)
+	parts := strings.SplitN(relPath, string(filepath.Separator), 2)
+	if len(parts) < 2 {
+		return ""
+	}
+
+	// branchPath is "project.feat/auth" or "project.feature"
+	branchPath := parts[1]
+	if strings.HasPrefix(branchPath, prefix) {
+		return strings.TrimPrefix(branchPath, prefix)
 	}
 	return ""
 }
@@ -230,6 +256,7 @@ func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Work
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	var workspaces []Workspace
 	var currentWorkspace *Workspace
+	workspaceDir := s.WorkspaceDir()
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -243,7 +270,7 @@ func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Work
 
 		if strings.HasPrefix(line, "worktree ") {
 			path := strings.TrimPrefix(line, "worktree ")
-			branch := extractBranchFromPath(path, proj.Name)
+			branch := extractBranchFromPath(path, proj.Name, workspaceDir)
 			currentWorkspace = &Workspace{
 				Project: proj,
 				Path:    path,
