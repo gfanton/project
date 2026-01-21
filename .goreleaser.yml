@@ -27,10 +27,29 @@ builds:
       - -X main.date={{.Date}}
       - -X main.builtBy=goreleaser
 
+  - id: proj-tmux
+    main: ./plugins/proj-tmux
+    binary: proj-tmux
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+      - -X main.builtBy=goreleaser
+
 archives:
   - id: proj
     ids:
       - proj
+      - proj-tmux
     formats:
       - tar.gz
     format_overrides:
@@ -66,6 +85,9 @@ changelog:
 nfpms:
   - id: proj
     package_name: proj
+    builds:
+      - proj
+      - proj-tmux
     vendor: gfanton
     homepage: https://github.com/gfanton/project
     maintainer: gfanton <gfanton@example.com>
@@ -78,6 +100,7 @@ nfpms:
       - git
     recommends:
       - zsh
+      - tmux
 
 # Generate Nix package (uncomment repository section if you have a NUR repo)
 nix:
