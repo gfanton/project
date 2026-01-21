@@ -338,6 +338,9 @@ func (s *Service) Format(results []*Result, opts Options) string {
 		return ""
 	}
 
+	// Check if this is a bare workspace query (starts with ':' and has a current project)
+	isBareWorkspaceQuery := opts.CurrentProject != nil && strings.HasPrefix(opts.Query, ":")
+
 	getPath := func(result *Result) string {
 		var path string
 		if opts.AbsPath {
@@ -350,8 +353,14 @@ func (s *Service) Format(results []*Result, opts Options) string {
 			}
 		} else {
 			if result.Workspace != "" {
-				// For workspace results, return project:branch format
-				path = result.Project.String() + ":" + result.Workspace
+				// For bare workspace queries from current project, return :branch format
+				// This allows shell completion to work when user types "p :"
+				if isBareWorkspaceQuery && pathsEqual(result.Project.Path, opts.CurrentProject.Path) {
+					path = ":" + result.Workspace
+				} else {
+					// For workspace results, return project:branch format
+					path = result.Project.String() + ":" + result.Workspace
+				}
 			} else {
 				path = result.Project.String()
 			}

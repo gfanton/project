@@ -186,23 +186,8 @@
           ];
 
           shellHook = ''
-            echo "Project development environment loaded"
-            echo "Go version: $(go version)"
-            echo "Zsh version: $(zsh --version | head -1)"
-
-            # Set up test environment variables
-            export PROJECT_TEST_DIR="$PWD/test-env"
-            export PROJECT_TEST_BIN="$PWD/build/proj"
-
-            echo ""
-            echo "Available commands:"
-            echo "  make build              - Build the project"
-            echo "  make test               - Run Go unit tests"
-            echo "  make test-shell         - Run Go-based shell tests"
-            echo "  make test-integration   - Run BATS/Expect tests"
-            echo "  make test-nix           - Run all tests in Nix"
-            echo "  ./test-completion.sh    - Test enhanced completion"
-            echo "  ./test-shell.sh         - Test shell integration"
+            export PROJECT_TEST_DIR="${PWD}/test-env"
+            export PROJECT_TEST_BIN="${PWD}/build/proj"
           '';
         };
 
@@ -233,58 +218,23 @@
           ];
 
           shellHook = ''
-            echo "Tmux Integration Testing Environment"
-            echo "===================================="
-            echo "Tmux version: $(tmux -V)"
-            echo "BATS version: $(bats --version)"
-            echo "Expect version: $(expect -v | head -1)"
-            echo ""
+            export TEST_TMUX_DIR="$(mktemp -d -t tmux-test-XXXXXX)"
+            export TEST_TMUX_SOCKET="${TEST_TMUX_DIR}/test-socket"
+            export TMUX_TMPDIR="${TEST_TMUX_DIR}"
+            export TEST_PROJECT_DIR="${TEST_TMUX_DIR}/projects"
+            mkdir -p "${TEST_PROJECT_DIR}"
 
-            # Set up isolated tmux environment for testing
-            export TEST_TMUX_DIR=$(mktemp -d -t tmux-test-XXXXXX)
-            export TEST_TMUX_SOCKET="$TEST_TMUX_DIR/test-socket"
-            export TMUX_TMPDIR="$TEST_TMUX_DIR"
-
-            # Prevent interference with user's tmux sessions
-            alias test-tmux='tmux -S $TEST_TMUX_SOCKET'
-
-            # Test project directory setup
-            export TEST_PROJECT_DIR="$TEST_TMUX_DIR/projects"
-            mkdir -p "$TEST_PROJECT_DIR"
-
-            # Build proj binary for testing if not exists
-            if [ ! -f "./build/proj" ]; then
-              echo "Building proj binary for testing..."
-              make build
+            if [[ ! -f "./build/proj" ]]; then
+              make build >/dev/null 2>&1 || echo "Warning: Failed to build proj" >&2
             fi
-            export PROJ_BINARY="$PWD/build/proj"
+            export PROJ_BINARY="${PWD}/build/proj"
 
-            echo "Testing environment ready!"
-            echo ""
-            echo "Environment variables:"
-            echo "  TEST_TMUX_DIR=$TEST_TMUX_DIR"
-            echo "  TEST_TMUX_SOCKET=$TEST_TMUX_SOCKET"
-            echo "  TEST_PROJECT_DIR=$TEST_PROJECT_DIR"
-            echo "  PROJ_BINARY=$PROJ_BINARY"
-            echo ""
-            echo "Available aliases:"
-            echo "  test-tmux    - Isolated tmux instance for testing"
-            echo ""
-            echo "Cleanup on exit will remove $TEST_TMUX_DIR"
-            echo ""
-            echo "Available test commands:"
-            echo "  bats tests/unit/           - Run BATS unit tests"
-            echo "  tests/run_tests.sh         - Run all tests"
-            echo "  make test-tmux             - Run tmux integration tests"
+            alias test-tmux='tmux -S "${TEST_TMUX_SOCKET}"'
 
-            # Cleanup function for exit
             cleanup_test_env() {
-              echo "Cleaning up test environment..."
-              tmux -S "$TEST_TMUX_SOCKET" kill-server 2>/dev/null || true
-              rm -rf "$TEST_TMUX_DIR"
+              tmux -S "${TEST_TMUX_SOCKET}" kill-server 2>/dev/null || true
+              rm -rf "${TEST_TMUX_DIR}"
             }
-
-            # Register cleanup on exit
             trap cleanup_test_env EXIT
           '';
         };

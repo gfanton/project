@@ -36,3 +36,9 @@ debug-*.zsh
 *.log
 build-output.log
 vendor-hash.txt
+
+# Cache directories
+.cache/
+
+# Nix
+.direnv

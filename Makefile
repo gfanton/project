@@ -8,7 +8,8 @@ SHELL := /bin/sh
 # ---- Phony Targets
 .PHONY: all build build-tmux build-all install install-tmux install-all \
 	test test-coverage test-shell test-integration test-tmux test-nix test-plugin \
-	lint clean tidy dev dev-tmux update-vendor-hash release test-nix-tmux help
+	lint clean tidy dev dev-tmux update-vendor-hash release test-nix-tmux help \
+	test-completion
 
 # ---- Variables
 APP_NAME := proj
@@ -147,6 +148,11 @@ release:  ## Show release instructions
 	@echo "Use: ./scripts/release/release.sh [version]"
 	@echo "Example: ./scripts/release/release.sh v1.2.3"
 	@echo "Example: ./scripts/release/release.sh  (interactive)"
+
+# ---- Completion Testing
+
+test-completion:  ## Start isolated zsh for shell completion testing
+	@./scripts/test-completion.sh
 
 # ---- Help Target
 
