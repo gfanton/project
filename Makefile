@@ -9,7 +9,7 @@ SHELL := /bin/sh
 .PHONY: all build build-tmux build-all install install-tmux install-all \
 	test test-coverage test-shell test-integration test-tmux test-nix test-plugin \
 	lint clean tidy dev dev-tmux update-vendor-hash release test-nix-tmux help \
-	test-completion
+	test-completion tmux-sandbox
 
 # ---- Variables
 APP_NAME := proj
@@ -149,10 +149,13 @@ release:  ## Show release instructions
 	@echo "Example: ./scripts/release/release.sh v1.2.3"
 	@echo "Example: ./scripts/release/release.sh  (interactive)"
 
-# ---- Completion Testing
+# ---- Interactive Testing
 
 test-completion:  ## Start isolated zsh for shell completion testing
 	@./scripts/test-completion.sh
+
+tmux-sandbox:  ## Start isolated tmux session for plugin testing
+	@./scripts/test-tmux.sh
 
 # ---- Help Target
 
