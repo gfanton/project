@@ -13,6 +13,12 @@ import (
 	"github.com/gfanton/projects/internal/project"
 )
 
+// encodeBranch converts branch name to safe directory name.
+// Replaces "/" with "--" to avoid subdirectory creation.
+func encodeBranch(branch string) string {
+	return strings.ReplaceAll(branch, "/", "--")
+}
+
 type Service struct {
 	logger      *slog.Logger
 	projectRoot string
@@ -36,7 +42,8 @@ func (s *Service) WorkspaceDir() string {
 }
 
 func (s *Service) WorkspacePath(proj project.Project, branch string) string {
-	return filepath.Join(s.WorkspaceDir(), proj.Organisation, fmt.Sprintf("%s.%s", proj.Name, branch))
+	encoded := encodeBranch(branch)
+	return filepath.Join(s.WorkspaceDir(), proj.Organisation, proj.Name, encoded)
 }
 
 // isPullRequest checks if the branch string is a PR number (#123 format)
@@ -215,48 +222,10 @@ func (s *Service) List(ctx context.Context, proj project.Project) ([]Workspace, 
 	return s.parseWorktreeList(proj, string(output))
 }
 
-// extractBranchFromPath extracts branch from workspace directory path.
-// Handles branch names with slashes (e.g., feat/auth) which create subdirectories.
-// e.g., path ".workspace/org/project.feature" with projectName "project" -> "feature"
-// e.g., path ".workspace/org/project.feat/auth" with projectName "project" -> "feat/auth"
-func extractBranchFromPath(workspacePath, projectName, workspaceDir string) string {
-	// Resolve symlinks in both paths to handle macOS /var -> /private/var
-	if resolved, err := filepath.EvalSymlinks(workspacePath); err == nil {
-		workspacePath = resolved
-	}
-	if resolved, err := filepath.EvalSymlinks(workspaceDir); err == nil {
-		workspaceDir = resolved
-	}
-
-	// Get path relative to workspace dir
-	// workspacePath: /root/.workspace/org/project.feat/auth
-	// workspaceDir: /root/.workspace
-	// relPath: org/project.feat/auth
-	relPath, err := filepath.Rel(workspaceDir, workspacePath)
-	if err != nil {
-		return ""
-	}
-
-	// Split into org and the rest: ["org", "project.feat/auth"]
-	prefix := projectName + "."
-	parts := strings.SplitN(relPath, string(filepath.Separator), 2)
-	if len(parts) < 2 {
-		return ""
-	}
-
-	// branchPath is "project.feat/auth" or "project.feature"
-	branchPath := parts[1]
-	if strings.HasPrefix(branchPath, prefix) {
-		return strings.TrimPrefix(branchPath, prefix)
-	}
-	return ""
-}
-
 func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Workspace, error) {
 	lines := strings.Split(strings.TrimSpace(output), "\n")
 	var workspaces []Workspace
 	var currentWorkspace *Workspace
-	workspaceDir := s.WorkspaceDir()
 
 	for _, line := range lines {
 		line = strings.TrimSpace(line)
@@ -270,11 +239,16 @@ func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Work
 
 		if strings.HasPrefix(line, "worktree ") {
 			path := strings.TrimPrefix(line, "worktree ")
-			branch := extractBranchFromPath(path, proj.Name, workspaceDir)
 			currentWorkspace = &Workspace{
 				Project: proj,
 				Path:    path,
-				Branch:  branch,
+			}
+		}
+
+		// Get branch name directly from git's branch line
+		if strings.HasPrefix(line, "branch refs/heads/") {
+			if currentWorkspace != nil {
+				currentWorkspace.Branch = strings.TrimPrefix(line, "branch refs/heads/")
 			}
 		}
 	}
@@ -283,19 +257,20 @@ func (s *Service) parseWorktreeList(proj project.Project, output string) ([]Work
 		workspaces = append(workspaces, *currentWorkspace)
 	}
 
-	var filteredWorkspaces []Workspace
+	// Filter to only include workspaces in our workspace directory
 	workspaceDir, err := filepath.EvalSymlinks(s.WorkspaceDir())
 	if err != nil {
 		workspaceDir = s.WorkspaceDir()
 	}
 
+	var filteredWorkspaces []Workspace
 	for _, ws := range workspaces {
 		wsPath := ws.Path
 		if evalPath, err := filepath.EvalSymlinks(ws.Path); err == nil {
 			wsPath = evalPath
 		}
 
-		if strings.HasPrefix(wsPath, workspaceDir) {
+		if strings.HasPrefix(wsPath, workspaceDir) && ws.Branch != "" {
 			filteredWorkspaces = append(filteredWorkspaces, ws)
 		}
 	}

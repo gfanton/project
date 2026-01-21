@@ -10,14 +10,14 @@ import (
 
 	"github.com/gfanton/projects/internal/config"
 	"github.com/gfanton/projects/internal/project"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
-func newAddCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "add",
-		ShortUsage: "proj add [name]",
-		ShortHelp:  "Add current directory as a project symlink",
+func newAddCommand(logger *slog.Logger, cfg *config.Config) *ff.Command {
+	return &ff.Command{
+		Name:      "add",
+		Usage:     "proj add [name]",
+		ShortHelp: "Add current directory as a project symlink",
 		LongHelp: `Add the current directory as a project symlink in the configured root.
 
 If no name is provided, uses the current directory name with the default user.
@@ -39,37 +39,9 @@ Example:
 }
 
 func runAdd(ctx context.Context, logger *slog.Logger, cfg *config.Config, args []string) error {
-	// Get current working directory, preserving symlinks if possible
-	currentDir := os.Getenv("PWD")
-	if currentDir == "" {
-		// Fallback to os.Getwd() if PWD is not set
-		var err error
-		currentDir, err = os.Getwd()
-		if err != nil {
-			return fmt.Errorf("failed to get current directory: %w", err)
-		}
-
-		// Get absolute path only when using os.Getwd()
-		currentDir, err = filepath.Abs(currentDir)
-		if err != nil {
-			return fmt.Errorf("failed to get absolute path: %w", err)
-		}
-	} else {
-		// PWD is already absolute, but make sure it's clean
-		currentDir = filepath.Clean(currentDir)
-
-		// Verify that PWD actually points to a valid directory
-		if _, err := os.Stat(currentDir); err != nil {
-			// PWD might be stale, fallback to os.Getwd()
-			currentDir, err = os.Getwd()
-			if err != nil {
-				return fmt.Errorf("failed to get current directory: %w", err)
-			}
-			currentDir, err = filepath.Abs(currentDir)
-			if err != nil {
-				return fmt.Errorf("failed to get absolute path: %w", err)
-			}
-		}
+	currentDir, err := getCurrentDir()
+	if err != nil {
+		return err
 	}
 
 	var projectName string
@@ -79,7 +51,7 @@ func runAdd(ctx context.Context, logger *slog.Logger, cfg *config.Config, args [
 	} else if len(args) == 1 {
 		projectName = args[0]
 	} else {
-		return fmt.Errorf("too many arguments; expected 0 or 1 project name")
+		return fmt.Errorf("too many arguments, expected 0 or 1 project name")
 	}
 
 	p, err := project.ParseProject(cfg.RootDir, cfg.RootUser, projectName)
@@ -118,4 +90,32 @@ func runAdd(ctx context.Context, logger *slog.Logger, cfg *config.Config, args [
 	fmt.Printf("Symlink: %s -> %s\n", p.Path, currentDir)
 
 	return nil
+}
+
+// getCurrentDir returns the current working directory, preserving symlinks if possible.
+// It prefers the PWD environment variable over os.Getwd() to preserve symlink paths.
+func getCurrentDir() (string, error) {
+	// Try PWD first to preserve symlinks
+	if currentDir := os.Getenv("PWD"); currentDir != "" {
+		currentDir = filepath.Clean(currentDir)
+
+		// Verify PWD points to a valid directory
+		if _, err := os.Stat(currentDir); err == nil {
+			return currentDir, nil
+		}
+		// PWD is stale, fall through to os.Getwd()
+	}
+
+	// Fallback to os.Getwd()
+	currentDir, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("failed to get current directory: %w", err)
+	}
+
+	currentDir, err = filepath.Abs(currentDir)
+	if err != nil {
+		return "", fmt.Errorf("failed to get absolute path: %w", err)
+	}
+
+	return currentDir, nil
 }

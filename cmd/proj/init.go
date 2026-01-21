@@ -8,14 +8,14 @@ import (
 
 	"github.com/gfanton/projects/internal/config"
 	"github.com/gfanton/projects/pkg/template"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
-func newInitCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "init",
-		ShortUsage: "proj init <shell>",
-		ShortHelp:  "Generate shell integration script",
+func newInitCommand(logger *slog.Logger, cfg *config.Config) *ff.Command {
+	return &ff.Command{
+		Name:      "init",
+		Usage:     "proj init <shell>",
+		ShortHelp: "Generate shell integration script",
 		LongHelp: `Generate shell integration script for the specified shell.
 
 Supported shells:
@@ -29,7 +29,7 @@ Example:
 	}
 }
 
-func runInit(ctx context.Context, logger *slog.Logger, cfg *config.Config, args []string) error {
+func runInit(_ context.Context, _ *slog.Logger, _ *config.Config, args []string) error {
 	if len(args) != 1 {
 		return fmt.Errorf("exactly one shell argument required")
 	}
@@ -37,13 +37,13 @@ func runInit(ctx context.Context, logger *slog.Logger, cfg *config.Config, args 
 	shell := args[0]
 	switch shell {
 	case "zsh":
-		return generateZshInit(logger, cfg)
+		return generateZshInit()
 	default:
 		return fmt.Errorf("unsupported shell: %s", shell)
 	}
 }
 
-func generateZshInit(logger *slog.Logger, cfg *config.Config) error {
+func generateZshInit() error {
 	execPath, err := os.Executable()
 	if err != nil {
 		return fmt.Errorf("failed to get executable path: %w", err)

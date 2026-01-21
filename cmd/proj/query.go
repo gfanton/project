@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,48 +9,30 @@ import (
 
 	"github.com/gfanton/projects"
 	"github.com/gfanton/projects/internal/config"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
 type queryConfig struct {
-	exclude      []string
-	all          bool
-	absPath      bool
-	separator    string
-	limit        int
-	showDistance bool
+	Exclude      []string
+	AbsPath      bool
+	Separator    string
+	Limit        int
+	ShowDistance bool
 }
 
-type excludeValue struct {
-	values *[]string
-}
+func newQueryCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	queryCfg := &queryConfig{}
+	fs := ff.NewFlagSet("query")
+	fs.StringSetVar(&queryCfg.Exclude, 0, "exclude", "exclude project path (repeatable)")
+	fs.BoolVar(&queryCfg.AbsPath, 0, "abspath", "return absolute paths instead of project names")
+	fs.StringVar(&queryCfg.Separator, 0, "sep", "\n", "separator between results")
+	fs.IntVar(&queryCfg.Limit, 0, "limit", 20, "limit number of results (0 = no limit)")
+	fs.BoolVar(&queryCfg.ShowDistance, 'v', "", "show distance with matching projects")
 
-func (e excludeValue) Set(value string) error {
-	*e.values = append(*e.values, value)
-	return nil
-}
-
-func (e excludeValue) String() string {
-	if e.values == nil {
-		return ""
-	}
-	return strings.Join(*e.values, ",")
-}
-
-func newQueryCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	var queryCfg queryConfig
-
-	fs := flag.NewFlagSet("query", flag.ExitOnError)
-	fs.Var(excludeValue{&queryCfg.exclude}, "exclude", "exclude project path (can be used multiple times)")
-	fs.BoolVar(&queryCfg.absPath, "abspath", false, "return absolute paths instead of project names")
-	fs.StringVar(&queryCfg.separator, "sep", "\n", "separator between results")
-	fs.IntVar(&queryCfg.limit, "limit", 20, "limit number of results (0 = no limit)")
-	fs.BoolVar(&queryCfg.showDistance, "v", false, "show distance with matching projects")
-
-	return &ffcli.Command{
-		Name:       "query",
-		ShortUsage: "proj query [flags] [search]",
-		ShortHelp:  "Search for projects and workspaces using fuzzy matching",
+	return &ff.Command{
+		Name:      "query",
+		Usage:     "proj query [flags] [search]",
+		ShortHelp: "Search for projects and workspaces using fuzzy matching",
 		LongHelp: `Search for projects and workspaces using fuzzy matching.
 
 Project search:
@@ -60,7 +41,7 @@ Project search:
 
 Workspace search (requires ':' syntax):
   proj query foo/bar:feature          # Search workspace "feature" in "foo/bar" project
-  proj query :feature                 # Search workspaces named "feature" in all projects  
+  proj query :feature                 # Search workspaces named "feature" in all projects
   proj query foo:                     # List all workspaces in projects matching "foo"
 
 Examples:
@@ -69,9 +50,9 @@ Examples:
   proj query --abspath --limit 5 app
   proj query gfanton/projects:main
   proj query :dev`,
-		FlagSet: fs,
+		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
-			return runQuery(ctx, logger, cfg, projectsCfg, projectsLogger, queryCfg, args)
+			return runQuery(ctx, logger, cfg, projectsCfg, projectsLogger, *queryCfg, args)
 		},
 	}
 }
@@ -96,11 +77,11 @@ func runQuery(ctx context.Context, logger *slog.Logger, cfg *config.Config, proj
 
 	opts := projects.SearchOptions{
 		Query:          searchQuery,
-		Exclude:        queryCfg.exclude,
-		AbsPath:        queryCfg.absPath,
-		Separator:      queryCfg.separator,
-		Limit:          queryCfg.limit,
-		ShowDistance:   queryCfg.showDistance,
+		Exclude:        queryCfg.Exclude,
+		AbsPath:        queryCfg.AbsPath,
+		Separator:      queryCfg.Separator,
+		Limit:          queryCfg.Limit,
+		ShowDistance:   queryCfg.ShowDistance,
 		CurrentProject: currentProject,
 	}
 

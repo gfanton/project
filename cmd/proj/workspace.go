@@ -3,24 +3,23 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/gfanton/projects"
 	"github.com/gfanton/projects/internal/config"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
-func newWorkspaceCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "workspace",
-		ShortUsage: "workspace <subcommand>",
-		ShortHelp:  "Manage git worktrees for projects",
+func newWorkspaceCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "workspace",
+		Usage:     "workspace <subcommand>",
+		ShortHelp: "Manage git worktrees for projects",
 		LongHelp: `Manage git worktrees for projects.
 
-Workspaces are created in <projects_root>/.workspace/<org>/<name>.<branch>/
+Workspaces are created in <projects_root>/.workspace/<org>/<name>/<branch>/
 
 Commands:
   add <branch|#pr> [project]     Add new workspace (supports PR checkout with #123)
@@ -29,22 +28,22 @@ Commands:
 
 When inside a project directory, the project parameter is optional.
 When outside a project directory, the project parameter is required.`,
-		Subcommands: []*ffcli.Command{
-			newWorkspaceAddCommand(logger, cfg, projectsCfg, projectsLogger),
-			newWorkspaceRemoveCommand(logger, cfg, projectsCfg, projectsLogger),
-			newWorkspaceListCommand(logger, cfg, projectsCfg, projectsLogger),
+		Subcommands: []*ff.Command{
+			newWorkspaceAddCommand(projectsCfg, projectsLogger),
+			newWorkspaceRemoveCommand(projectsCfg, projectsLogger),
+			newWorkspaceListCommand(projectsCfg, projectsLogger),
 		},
 		Exec: func(ctx context.Context, args []string) error {
-			return flag.ErrHelp
+			return ff.ErrHelp
 		},
 	}
 }
 
-func newWorkspaceAddCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "add",
-		ShortUsage: "workspace add <branch|#pr> [project]",
-		ShortHelp:  "Add new workspace",
+func newWorkspaceAddCommand(projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "add",
+		Usage:     "workspace add <branch|#pr> [project]",
+		ShortHelp: "Add new workspace",
 		LongHelp: `Add a new git worktree workspace.
 
 The branch parameter specifies which branch to checkout in the workspace.
@@ -77,18 +76,19 @@ Examples:
 	}
 }
 
-func newWorkspaceRemoveCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	var removeCfg struct {
-		deleteBranch bool
-	}
+type workspaceRemoveConfig struct {
+	DeleteBranch bool
+}
 
-	fs := flag.NewFlagSet("workspace remove", flag.ContinueOnError)
-	fs.BoolVar(&removeCfg.deleteBranch, "delete-branch", false, "also delete the git branch")
+func newWorkspaceRemoveCommand(projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	removeCfg := &workspaceRemoveConfig{}
+	fs := ff.NewFlagSet("workspace remove")
+	fs.BoolVar(&removeCfg.DeleteBranch, 0, "delete-branch", "also delete the git branch (use with caution)")
 
-	return &ffcli.Command{
-		Name:       "remove",
-		ShortUsage: "workspace remove [flags] <branch> [project]",
-		ShortHelp:  "Remove workspace",
+	return &ff.Command{
+		Name:      "remove",
+		Usage:     "workspace remove [flags] <branch> [project]",
+		ShortHelp: "Remove workspace",
 		LongHelp: `Remove a git worktree workspace.
 
 The branch parameter specifies which workspace branch to remove.
@@ -96,7 +96,7 @@ If the project parameter is not provided, the current directory must be inside a
 
 FLAGS
   --delete-branch    Also delete the git branch (use with caution)`,
-		FlagSet: fs,
+		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			if len(args) < 1 {
 				return errors.New("branch name is required")
@@ -114,16 +114,16 @@ FLAGS
 			}
 
 			svc := projects.NewWorkspaceService(projectsCfg, projectsLogger)
-			return svc.Remove(ctx, *proj, branch, removeCfg.deleteBranch)
+			return svc.Remove(ctx, *proj, branch, removeCfg.DeleteBranch)
 		},
 	}
 }
 
-func newWorkspaceListCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "list",
-		ShortUsage: "workspace list [project]",
-		ShortHelp:  "List workspaces",
+func newWorkspaceListCommand(projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "list",
+		Usage:     "workspace list [project]",
+		ShortHelp: "List workspaces",
 		LongHelp: `List git worktree workspaces for a project.
 
 If the project parameter is not provided, the current directory must be inside a project.`,
@@ -163,11 +163,7 @@ func resolveProject(projectsCfg *projects.Config, projectsLogger projects.Logger
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
 
 	if projectStr != "" {
-		proj, err := projectSvc.ParseProject(projectStr)
-		if err != nil {
-			return nil, err
-		}
-		return proj, nil
+		return projectSvc.ParseProject(projectStr)
 	}
 
 	wd, err := os.Getwd()

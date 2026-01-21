@@ -2,11 +2,10 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"runtime"
 
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
 var (
@@ -17,28 +16,27 @@ var (
 )
 
 type versionConfig struct {
-	verbose bool
+	Verbose bool
 }
 
-func NewVersionCommand(parent *rootConfig) *ffcli.Command {
+func NewVersionCommand(parent *rootConfig) *ff.Command {
 	cfg := &versionConfig{}
-	fs := flag.NewFlagSet("proj version", flag.ContinueOnError)
-	fs.BoolVar(&cfg.verbose, "v", false, "show verbose version information")
-	fs.BoolVar(&cfg.verbose, "verbose", false, "show verbose version information")
+	fs := ff.NewFlagSet("proj version")
+	fs.BoolVar(&cfg.Verbose, 'v', "verbose", "show verbose version information")
 
-	return &ffcli.Command{
-		Name:       "version",
-		ShortUsage: "proj version [-v]",
-		ShortHelp:  "Show version information",
-		FlagSet:    fs,
+	return &ff.Command{
+		Name:      "version",
+		Usage:     "proj version [-v]",
+		ShortHelp: "Show version information",
+		Flags:     fs,
 		Exec: func(ctx context.Context, args []string) error {
 			return runVersion(ctx, parent, cfg)
 		},
 	}
 }
 
-func runVersion(ctx context.Context, rootCfg *rootConfig, cfg *versionConfig) error {
-	if cfg.verbose {
+func runVersion(_ context.Context, _ *rootConfig, cfg *versionConfig) error {
+	if cfg.Verbose {
 		fmt.Printf("proj version %s\n", version)
 		fmt.Printf("  commit: %s\n", commit)
 		fmt.Printf("  built at: %s\n", date)

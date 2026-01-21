@@ -8,14 +8,14 @@ import (
 
 	"github.com/gfanton/projects/internal/config"
 	"github.com/gfanton/projects/internal/project"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
-func newNewCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "new",
-		ShortUsage: "proj new <name>",
-		ShortHelp:  "Create a new project directory",
+func newNewCommand(logger *slog.Logger, cfg *config.Config) *ff.Command {
+	return &ff.Command{
+		Name:      "new",
+		Usage:     "proj new <name>",
+		ShortHelp: "Create a new project directory",
 		LongHelp: `Create a new project directory in the configured root.
 
 The project name can be:

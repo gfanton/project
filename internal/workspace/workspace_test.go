@@ -23,6 +23,27 @@ func TestService_WorkspaceDir(t *testing.T) {
 	}
 }
 
+func TestEncodeBranch(t *testing.T) {
+	tests := []struct {
+		branch   string
+		expected string
+	}{
+		{"main", "main"},
+		{"feature", "feature"},
+		{"feat/auth", "feat--auth"},
+		{"fix/issue/123", "fix--issue--123"},
+		{"release/v1.0", "release--v1.0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.branch, func(t *testing.T) {
+			if got := encodeBranch(tt.branch); got != tt.expected {
+				t.Errorf("encodeBranch(%q) = %q, want %q", tt.branch, got, tt.expected)
+			}
+		})
+	}
+}
+
 func TestService_WorkspacePath(t *testing.T) {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	svc := NewService(logger, "/test/root")
@@ -33,69 +54,19 @@ func TestService_WorkspacePath(t *testing.T) {
 		Path:         "/test/root/testorg/testproject",
 	}
 
-	expected := "/test/root/.workspace/testorg/testproject.feature"
-	if got := svc.WorkspacePath(proj, "feature"); got != expected {
-		t.Errorf("WorkspacePath() = %q, want %q", got, expected)
-	}
-}
-
-func TestExtractBranchFromPath(t *testing.T) {
 	tests := []struct {
-		name         string
-		workspacePath string
-		projectName  string
-		workspaceDir string
-		expected     string
+		branch   string
+		expected string
 	}{
-		{
-			name:          "simple branch",
-			workspacePath: "/test/.workspace/testorg/testproject.feature",
-			projectName:   "testproject",
-			workspaceDir:  "/test/.workspace",
-			expected:      "feature",
-		},
-		{
-			name:          "slashed branch",
-			workspacePath: "/test/.workspace/testorg/testproject.feat/auth",
-			projectName:   "testproject",
-			workspaceDir:  "/test/.workspace",
-			expected:      "feat/auth",
-		},
-		{
-			name:          "deeply nested slashed branch",
-			workspacePath: "/test/.workspace/testorg/testproject.feature/deep/nested",
-			projectName:   "testproject",
-			workspaceDir:  "/test/.workspace",
-			expected:      "feature/deep/nested",
-		},
-		{
-			name:          "branch with multiple slashes",
-			workspacePath: "/test/.workspace/testorg/testproject.fix/issue/123",
-			projectName:   "testproject",
-			workspaceDir:  "/test/.workspace",
-			expected:      "fix/issue/123",
-		},
-		{
-			name:          "non-matching path",
-			workspacePath: "/other/path/testproject.feature",
-			projectName:   "testproject",
-			workspaceDir:  "/test/.workspace",
-			expected:      "",
-		},
-		{
-			name:          "wrong project name",
-			workspacePath: "/test/.workspace/testorg/otherproject.feature",
-			projectName:   "testproject",
-			workspaceDir:  "/test/.workspace",
-			expected:      "",
-		},
+		{"feature", "/test/root/.workspace/testorg/testproject/feature"},
+		{"feat/auth", "/test/root/.workspace/testorg/testproject/feat--auth"},
+		{"fix/issue/123", "/test/root/.workspace/testorg/testproject/fix--issue--123"},
 	}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := extractBranchFromPath(tt.workspacePath, tt.projectName, tt.workspaceDir)
-			if result != tt.expected {
-				t.Errorf("extractBranchFromPath() = %q, want %q", result, tt.expected)
+		t.Run(tt.branch, func(t *testing.T) {
+			if got := svc.WorkspacePath(proj, tt.branch); got != tt.expected {
+				t.Errorf("WorkspacePath(%q) = %q, want %q", tt.branch, got, tt.expected)
 			}
 		})
 	}
@@ -112,15 +83,17 @@ func TestService_parseWorktreeList(t *testing.T) {
 		Path:         "/test/repo",
 	}
 
+	// New path structure: .workspace/org/project/encoded-branch
+	// Branch name comes from git's "branch refs/heads/..." line
 	tests := []struct {
-		name            string
-		output          string
-		expected        int
+		name             string
+		output           string
+		expected         int
 		expectedBranches []string
 	}{
 		{
 			name: "single worktree",
-			output: `worktree /test/.workspace/testorg/testproject.feature
+			output: `worktree /test/.workspace/testorg/testproject/feature
 HEAD abc123
 branch refs/heads/feature
 
@@ -134,11 +107,11 @@ branch refs/heads/feature
 HEAD def456
 branch refs/heads/main
 
-worktree /test/.workspace/testorg/testproject.feature
+worktree /test/.workspace/testorg/testproject/feature
 HEAD abc123
 branch refs/heads/feature
 
-worktree /test/.workspace/testorg/testproject.bugfix
+worktree /test/.workspace/testorg/testproject/bugfix
 HEAD ghi789
 branch refs/heads/bugfix
 
@@ -153,16 +126,16 @@ branch refs/heads/bugfix
 			expectedBranches: nil,
 		},
 		{
-			name: "slashed branch names",
+			name: "slashed branch names with encoded paths",
 			output: `worktree /test/repo
 HEAD def456
 branch refs/heads/main
 
-worktree /test/.workspace/testorg/testproject.feat/auth
+worktree /test/.workspace/testorg/testproject/feat--auth
 HEAD abc123
 branch refs/heads/feat/auth
 
-worktree /test/.workspace/testorg/testproject.fix/issue/123
+worktree /test/.workspace/testorg/testproject/fix--issue--123
 HEAD ghi789
 branch refs/heads/fix/issue/123
 
@@ -176,17 +149,27 @@ branch refs/heads/fix/issue/123
 HEAD def456
 branch refs/heads/main
 
-worktree /test/.workspace/testorg/testproject.feature
+worktree /test/.workspace/testorg/testproject/feature
 HEAD abc123
 branch refs/heads/feature
 
-worktree /test/.workspace/testorg/testproject.feat/login
+worktree /test/.workspace/testorg/testproject/feat--login
 HEAD ghi789
 branch refs/heads/feat/login
 
 `,
 			expected:         2,
 			expectedBranches: []string{"feature", "feat/login"},
+		},
+		{
+			name: "branch name from git overrides path",
+			output: `worktree /test/.workspace/testorg/testproject/encoded--branch
+HEAD abc123
+branch refs/heads/real/branch/name
+
+`,
+			expected:         1,
+			expectedBranches: []string{"real/branch/name"},
 		},
 	}
 

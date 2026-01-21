@@ -3,14 +3,14 @@ package main
 import (
 	"context"
 	"errors"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 
 	"github.com/gfanton/projects"
 	"github.com/gfanton/projects/internal/config"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
+	"github.com/peterbourgon/ff/v4/ffhelp"
 )
 
 type rootConfig struct {
@@ -49,19 +49,28 @@ func main() {
 		logger: logger,
 	}
 
-	root := &ffcli.Command{
-		Name:       "proj",
-		ShortUsage: "proj [flags] <subcommand>",
-		ShortHelp:  "A tool for managing Git projects in GitHub-style directory structure",
+	// Create root flag set with global flags
+	// These flags are parsed by config.Load() first, but need to be defined
+	// here so the command parser accepts them without error
+	rootFlags := ff.NewFlagSet("proj")
+	rootFlags.BoolVar(&cfg.Debug, 0, "debug", "enable debug logging")
+	rootFlags.StringVar(&cfg.RootDir, 0, "root", cfg.RootDir, "root directory for projects")
+	rootFlags.StringVar(&cfg.RootUser, 0, "user", cfg.RootUser, "default user for projects")
+	rootFlags.StringVar(&cfg.ConfigFile, 0, "config", cfg.ConfigFile, "configuration file path")
+
+	root := &ff.Command{
+		Name:      "proj",
+		Usage:     "proj [flags] <subcommand>",
+		ShortHelp: "A tool for managing Git projects in GitHub-style directory structure",
 		LongHelp: `proj is a command-line tool for managing Git projects organized in a GitHub-style
 directory structure. It provides fast project navigation, creation, and management.
 
 Use 'proj <subcommand> -h' for more information about a specific command.`,
-		FlagSet: flag.NewFlagSet("proj", flag.ContinueOnError),
+		Flags: rootFlags,
 		Exec: func(ctx context.Context, args []string) error {
-			return flag.ErrHelp
+			return ff.ErrHelp
 		},
-		Subcommands: []*ffcli.Command{
+		Subcommands: []*ff.Command{
 			newInitCommand(logger, cfg),
 			newListCommand(logger, cfg, projectsCfg, projectsLogger),
 			newNewCommand(logger, cfg),
@@ -74,10 +83,12 @@ Use 'proj <subcommand> -h' for more information about a specific command.`,
 	}
 
 	if err := root.ParseAndRun(ctx, os.Args[1:]); err != nil {
-		if !errors.Is(err, flag.ErrHelp) {
-			logger.Error("command failed", "error", err)
-			fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		if errors.Is(err, ff.ErrHelp) {
+			fmt.Fprint(os.Stdout, ffhelp.Command(root))
+			os.Exit(0)
 		}
+		logger.Error("command failed", "error", err)
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(1)
 	}
 }

@@ -437,6 +437,9 @@ func TestFindFromPath(t *testing.T) {
 		"user1/project1",
 		"user2/project2",
 		"org/deep-project/subdirectory",
+		".workspace/user1/project1/feature-branch",
+		".workspace/user2/project2",
+		".workspace/user1",
 	}
 
 	for _, project := range testProjects {
@@ -500,6 +503,38 @@ func TestFindFromPath(t *testing.T) {
 				Organisation: "user2",
 			},
 			expectError: false,
+		},
+		{
+			name: "find project from workspace directory",
+			path: filepath.Join(tempDir, ".workspace/user1/project1/feature-branch"),
+			expected: &Project{
+				Path:         filepath.Join(tempDir, "user1/project1"),
+				Name:         "project1",
+				Organisation: "user1",
+			},
+			expectError: false,
+		},
+		{
+			name: "find project from workspace root (no branch)",
+			path: filepath.Join(tempDir, ".workspace/user2/project2"),
+			expected: &Project{
+				Path:         filepath.Join(tempDir, "user2/project2"),
+				Name:         "project2",
+				Organisation: "user2",
+			},
+			expectError: false,
+		},
+		{
+			name:        "incomplete workspace path (org only)",
+			path:        filepath.Join(tempDir, ".workspace/user1"),
+			expectError: true,
+			errorMsg:    "does not contain organization/project structure",
+		},
+		{
+			name:        "workspace directory alone",
+			path:        filepath.Join(tempDir, ".workspace"),
+			expectError: true,
+			errorMsg:    "does not contain organization/project structure",
 		},
 	}
 

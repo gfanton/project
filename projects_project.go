@@ -195,6 +195,7 @@ func (s *ProjectService) Walk(fn WalkFunc) error {
 
 // FindFromPath finds a project from a given path by checking if it's within the root directory
 // and follows the organization/project structure.
+// Also handles paths inside .workspace directory.
 func (s *ProjectService) FindFromPath(path string) (*Project, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
@@ -218,12 +219,21 @@ func (s *ProjectService) FindFromPath(path string) (*Project, error) {
 	}
 
 	parts := strings.Split(relPath, string(os.PathSeparator))
-	if len(parts) < 2 {
+
+	// Handle .workspace directory: structure is .workspace/<org>/<name>/<branch>
+	orgIdx := 0
+	nameIdx := 1
+	if len(parts) > 0 && parts[0] == ".workspace" {
+		orgIdx = 1
+		nameIdx = 2
+	}
+
+	if len(parts) < nameIdx+1 {
 		return nil, errors.New("path does not contain organization/project structure")
 	}
 
-	org := parts[0]
-	name := parts[1]
+	org := parts[orgIdx]
+	name := parts[nameIdx]
 
 	return &Project{
 		Path:         filepath.Join(rootDir, org, name),

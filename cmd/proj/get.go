@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,25 +9,24 @@ import (
 	"github.com/gfanton/projects/internal/config"
 	"github.com/gfanton/projects/internal/git"
 	"github.com/gfanton/projects/internal/project"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
 type getConfig struct {
-	useSSH bool
-	token  string
+	UseSSH bool
+	Token  string
 }
 
-func newGetCommand(logger *slog.Logger, cfg *config.Config) *ffcli.Command {
-	var getCfg getConfig
+func newGetCommand(logger *slog.Logger, cfg *config.Config) *ff.Command {
+	getCfg := &getConfig{}
+	fs := ff.NewFlagSet("get")
+	fs.BoolVar(&getCfg.UseSSH, 0, "ssh", "use SSH for cloning instead of HTTPS")
+	fs.StringVar(&getCfg.Token, 0, "token", os.Getenv("GITHUB_TOKEN"), "GitHub token for authentication")
 
-	fs := flag.NewFlagSet("get", flag.ExitOnError)
-	fs.BoolVar(&getCfg.useSSH, "ssh", false, "use SSH for cloning instead of HTTPS")
-	fs.StringVar(&getCfg.token, "token", os.Getenv("GITHUB_TOKEN"), "GitHub token for authentication")
-
-	return &ffcli.Command{
-		Name:       "get",
-		ShortUsage: "proj get [flags] <name>...",
-		ShortHelp:  "Clone projects from GitHub",
+	return &ff.Command{
+		Name:      "get",
+		Usage:     "proj get [flags] <name>...",
+		ShortHelp: "Clone projects from GitHub",
 		LongHelp: `Clone one or more projects from GitHub into the configured directory structure.
 
 The project name can be:
@@ -40,9 +38,9 @@ Examples:
   proj get johndoe/webapp
   proj get --ssh johndoe/webapp
   proj get repo1 user2/repo2`,
-		FlagSet: fs,
+		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
-			return runGet(ctx, logger, cfg, getCfg, args)
+			return runGet(ctx, logger, cfg, *getCfg, args)
 		},
 	}
 }
@@ -71,15 +69,15 @@ func runGet(ctx context.Context, logger *slog.Logger, cfg *config.Config, getCfg
 
 		// Determine URL to use
 		url := p.GitHTTPURL()
-		if getCfg.useSSH {
+		if getCfg.UseSSH {
 			url = p.GitSSHURL()
 		}
 
 		cloneOpts := git.CloneOptions{
 			URL:         url,
 			Destination: p.Path,
-			UseSSH:      getCfg.useSSH,
-			Token:       getCfg.token,
+			UseSSH:      getCfg.UseSSH,
+			Token:       getCfg.Token,
 		}
 
 		if err := gitClient.Clone(ctx, cloneOpts); err != nil {

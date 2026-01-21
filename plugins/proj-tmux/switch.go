@@ -2,29 +2,29 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"strings"
 
 	"github.com/gfanton/projects"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
-func newSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	var switchCfg struct {
-		createSession bool
-		createWindow  bool
-	}
+type switchConfig struct {
+	CreateSession bool
+	CreateWindow  bool
+}
 
-	fs := flag.NewFlagSet("switch", flag.ExitOnError)
-	fs.BoolVar(&switchCfg.createSession, "create-session", true, "create session if it doesn't exist")
-	fs.BoolVar(&switchCfg.createWindow, "create-window", true, "create window if it doesn't exist (for workspace targets)")
+func newSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	switchCfg := &switchConfig{CreateSession: true, CreateWindow: true}
+	fs := ff.NewFlagSet("switch")
+	fs.BoolVar(&switchCfg.CreateSession, 0, "create-session", "create session if it doesn't exist")
+	fs.BoolVar(&switchCfg.CreateWindow, 0, "create-window", "create window if it doesn't exist (for workspace targets)")
 
-	return &ffcli.Command{
-		Name:       "switch",
-		ShortUsage: "proj-tmux switch [flags] <target>",
-		ShortHelp:  "Quick switch to project or workspace",
+	return &ff.Command{
+		Name:      "switch",
+		Usage:     "proj-tmux switch [flags] <target>",
+		ShortHelp: "Quick switch to project or workspace",
 		LongHelp: `Quick switch to a project session or workspace window.
 
 Targets can be:
@@ -34,14 +34,14 @@ Targets can be:
 FLAGS:
   --create-session    Create session if it doesn't exist (default: true)
   --create-window     Create window if it doesn't exist for workspace targets (default: true)`,
-		FlagSet: fs,
+		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("target is required")
 			}
 
 			target := args[0]
-			return runSwitch(ctx, logger, projectsCfg, projectsLogger, target, switchCfg.createSession, switchCfg.createWindow)
+			return runSwitch(ctx, logger, projectsCfg, projectsLogger, target, switchCfg.CreateSession, switchCfg.CreateWindow)
 		},
 	}
 }

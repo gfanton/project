@@ -2,50 +2,50 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/gfanton/projects"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
-func newWindowCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "window",
-		ShortUsage: "proj-tmux window <subcommand>",
-		ShortHelp:  "Manage tmux windows for project workspaces",
+func newWindowCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "window",
+		Usage:     "proj-tmux window <subcommand>",
+		ShortHelp: "Manage tmux windows for project workspaces",
 		LongHelp: `Manage tmux windows for project workspaces.
 
 Commands:
   create <workspace> [project]    Create window for workspace
   list [project]                  List workspace windows
   switch <workspace> [project]    Switch to workspace window`,
-		Subcommands: []*ffcli.Command{
+		Subcommands: []*ff.Command{
 			newWindowCreateCommand(logger, projectsCfg, projectsLogger),
 			newWindowListCommand(logger, projectsCfg, projectsLogger),
 			newWindowSwitchCommand(logger, projectsCfg, projectsLogger),
 		},
 		Exec: func(ctx context.Context, args []string) error {
-			return flag.ErrHelp
+			return ff.ErrHelp
 		},
 	}
 }
 
-func newWindowCreateCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	var createCfg struct {
-		autoSwitch bool
-	}
+type windowCreateConfig struct {
+	AutoSwitch bool
+}
 
-	fs := flag.NewFlagSet("window create", flag.ExitOnError)
-	fs.BoolVar(&createCfg.autoSwitch, "switch", true, "automatically switch to created window")
+func newWindowCreateCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	createCfg := &windowCreateConfig{AutoSwitch: true}
+	fs := ff.NewFlagSet("window create")
+	fs.BoolVar(&createCfg.AutoSwitch, 0, "switch", "automatically switch to created window")
 
-	return &ffcli.Command{
-		Name:       "create",
-		ShortUsage: "proj-tmux window create [flags] <workspace> [project]",
-		ShortHelp:  "Create tmux window for workspace",
+	return &ff.Command{
+		Name:      "create",
+		Usage:     "proj-tmux window create [flags] <workspace> [project]",
+		ShortHelp: "Create tmux window for workspace",
 		LongHelp: `Create a tmux window for the specified workspace.
 
 The window will be created in the appropriate project session and will
@@ -54,7 +54,7 @@ to the workspace path.
 
 FLAGS:
   --switch    Automatically switch to the created window (default: true)`,
-		FlagSet: fs,
+		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("workspace name is required")
@@ -66,17 +66,17 @@ FLAGS:
 				projectName = args[1]
 			}
 
-			return runWindowCreate(ctx, logger, projectsCfg, projectsLogger, workspace, projectName, createCfg.autoSwitch)
+			return runWindowCreate(ctx, logger, projectsCfg, projectsLogger, workspace, projectName, createCfg.AutoSwitch)
 		},
 	}
 }
 
-func newWindowListCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "list",
-		ShortUsage: "proj-tmux window list [project]",
-		ShortHelp:  "List workspace windows for project",
-		LongHelp:   `List all tmux windows in the current or specified project session.`,
+func newWindowListCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "list",
+		Usage:     "proj-tmux window list [project]",
+		ShortHelp: "List workspace windows for project",
+		LongHelp:  `List all tmux windows in the current or specified project session.`,
 		Exec: func(ctx context.Context, args []string) error {
 			var projectName string
 			if len(args) > 0 {
@@ -88,12 +88,12 @@ func newWindowListCommand(logger *slog.Logger, projectsCfg *projects.Config, pro
 	}
 }
 
-func newWindowSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "switch",
-		ShortUsage: "proj-tmux window switch <workspace> [project]",
-		ShortHelp:  "Switch to workspace window",
-		LongHelp:   `Switch to the tmux window for the specified workspace. Creates the window if it doesn't exist.`,
+func newWindowSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "switch",
+		Usage:     "proj-tmux window switch <workspace> [project]",
+		ShortHelp: "Switch to workspace window",
+		LongHelp:  `Switch to the tmux window for the specified workspace. Creates the window if it doesn't exist.`,
 		Exec: func(ctx context.Context, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("workspace name is required")

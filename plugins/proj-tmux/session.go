@@ -2,21 +2,20 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
 	"strings"
 
 	"github.com/gfanton/projects"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
-func newSessionCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "session",
-		ShortUsage: "proj-tmux session <subcommand>",
-		ShortHelp:  "Manage tmux sessions for projects",
+func newSessionCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "session",
+		Usage:     "proj-tmux session <subcommand>",
+		ShortHelp: "Manage tmux sessions for projects",
 		LongHelp: `Manage tmux sessions for projects.
 
 Commands:
@@ -24,30 +23,31 @@ Commands:
   list                List project sessions
   current             Show current project context
   switch <project>    Switch to project session`,
-		Subcommands: []*ffcli.Command{
+		Subcommands: []*ff.Command{
 			newSessionCreateCommand(logger, projectsCfg, projectsLogger),
 			newSessionListCommand(logger, projectsCfg, projectsLogger),
 			newSessionCurrentCommand(logger, projectsCfg, projectsLogger),
 			newSessionSwitchCommand(logger, projectsCfg, projectsLogger),
 		},
 		Exec: func(ctx context.Context, args []string) error {
-			return flag.ErrHelp
+			return ff.ErrHelp
 		},
 	}
 }
 
-func newSessionCreateCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	var createCfg struct {
-		autoSwitch bool
-	}
+type sessionCreateConfig struct {
+	AutoSwitch bool
+}
 
-	fs := flag.NewFlagSet("session create", flag.ExitOnError)
-	fs.BoolVar(&createCfg.autoSwitch, "switch", true, "automatically switch to created session")
+func newSessionCreateCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	createCfg := &sessionCreateConfig{AutoSwitch: true}
+	fs := ff.NewFlagSet("session create")
+	fs.BoolVar(&createCfg.AutoSwitch, 0, "switch", "automatically switch to created session")
 
-	return &ffcli.Command{
-		Name:       "create",
-		ShortUsage: "proj-tmux session create [flags] <project>",
-		ShortHelp:  "Create tmux session for project",
+	return &ff.Command{
+		Name:      "create",
+		Usage:     "proj-tmux session create [flags] <project>",
+		ShortHelp: "Create tmux session for project",
 		LongHelp: `Create a tmux session for the specified project.
 
 The session will be named using the format: proj-<org>-<name>
@@ -55,48 +55,48 @@ If the session already exists, this command will switch to it.
 
 FLAGS:
   --switch    Automatically switch to the created session (default: true)`,
-		FlagSet: fs,
+		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("project name is required")
 			}
 
 			projectName := args[0]
-			return runSessionCreate(ctx, logger, projectsCfg, projectsLogger, projectName, createCfg.autoSwitch)
+			return runSessionCreate(ctx, logger, projectsCfg, projectsLogger, projectName, createCfg.AutoSwitch)
 		},
 	}
 }
 
-func newSessionListCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "list",
-		ShortUsage: "proj-tmux session list",
-		ShortHelp:  "List project tmux sessions",
-		LongHelp:   `List all tmux sessions that are managed by proj-tmux.`,
+func newSessionListCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "list",
+		Usage:     "proj-tmux session list",
+		ShortHelp: "List project tmux sessions",
+		LongHelp:  `List all tmux sessions that are managed by proj-tmux.`,
 		Exec: func(ctx context.Context, args []string) error {
 			return runSessionList(ctx, logger, projectsCfg, projectsLogger)
 		},
 	}
 }
 
-func newSessionCurrentCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "current",
-		ShortUsage: "proj-tmux session current",
-		ShortHelp:  "Show current project context",
-		LongHelp:   `Show the current project context based on tmux session or working directory.`,
+func newSessionCurrentCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "current",
+		Usage:     "proj-tmux session current",
+		ShortHelp: "Show current project context",
+		LongHelp:  `Show the current project context based on tmux session or working directory.`,
 		Exec: func(ctx context.Context, args []string) error {
 			return runSessionCurrent(ctx, logger, projectsCfg, projectsLogger)
 		},
 	}
 }
 
-func newSessionSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	return &ffcli.Command{
-		Name:       "switch",
-		ShortUsage: "proj-tmux session switch <project>",
-		ShortHelp:  "Switch to project session",
-		LongHelp:   `Switch to the tmux session for the specified project. Creates the session if it doesn't exist.`,
+func newSessionSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	return &ff.Command{
+		Name:      "switch",
+		Usage:     "proj-tmux session switch <project>",
+		ShortHelp: "Switch to project session",
+		LongHelp:  `Switch to the tmux session for the specified project. Creates the session if it doesn't exist.`,
 		Exec: func(ctx context.Context, args []string) error {
 			if len(args) < 1 {
 				return fmt.Errorf("project name is required")
@@ -111,13 +111,7 @@ func newSessionSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, 
 func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, projectName string, autoSwitch bool) error {
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
 
-	// Use custom socket if specified via environment (for testing)
-	var tmuxSvc *TmuxService
-	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
-		tmuxSvc = NewTmuxServiceWithSocket(logger, socketPath)
-	} else {
-		tmuxSvc = NewTmuxService(logger)
-	}
+	tmuxSvc := newTmuxServiceFromEnv(logger)
 
 	// Parse and validate project
 	project, err := projectSvc.ParseProject(projectName)
@@ -157,13 +151,7 @@ func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 }
 
 func runSessionList(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) error {
-	// Use custom socket if specified via environment (for testing)
-	var tmuxSvc *TmuxService
-	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
-		tmuxSvc = NewTmuxServiceWithSocket(logger, socketPath)
-	} else {
-		tmuxSvc = NewTmuxService(logger)
-	}
+	tmuxSvc := newTmuxServiceFromEnv(logger)
 
 	sessions, err := tmuxSvc.ListSessions(ctx)
 	if err != nil {
@@ -197,13 +185,7 @@ func runSessionList(ctx context.Context, logger *slog.Logger, projectsCfg *proje
 }
 
 func runSessionCurrent(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) error {
-	// Use custom socket if specified via environment (for testing)
-	var tmuxSvc *TmuxService
-	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
-		tmuxSvc = NewTmuxServiceWithSocket(logger, socketPath)
-	} else {
-		tmuxSvc = NewTmuxService(logger)
-	}
+	tmuxSvc := newTmuxServiceFromEnv(logger)
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
 
 	// Try to get current tmux session
@@ -244,14 +226,17 @@ func runSessionSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 	}
 
 	sessionName := generateSessionName(project)
-	// Use custom socket if specified via environment (for testing)
-	var tmuxSvc *TmuxService
-	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
-		tmuxSvc = NewTmuxServiceWithSocket(logger, socketPath)
-	} else {
-		tmuxSvc = NewTmuxService(logger)
-	}
+	tmuxSvc := newTmuxServiceFromEnv(logger)
 	return tmuxSvc.SwitchSession(ctx, sessionName)
+}
+
+// newTmuxServiceFromEnv creates a TmuxService, using a custom socket if
+// the TMUX_SOCKET environment variable is set (for testing).
+func newTmuxServiceFromEnv(logger *slog.Logger) *TmuxService {
+	if socketPath := os.Getenv("TMUX_SOCKET"); socketPath != "" {
+		return NewTmuxServiceWithSocket(logger, socketPath)
+	}
+	return NewTmuxService(logger)
 }
 
 // generateSessionName creates a tmux session name from a project.

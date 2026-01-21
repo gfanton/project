@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -10,40 +9,39 @@ import (
 
 	"github.com/gfanton/projects"
 	"github.com/gfanton/projects/internal/config"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
 type listConfig struct {
-	all bool
+	All bool
 }
 
-func newListCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	var listCfg listConfig
+func newListCommand(logger *slog.Logger, cfg *config.Config, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	listCfg := &listConfig{}
+	fs := ff.NewFlagSet("list")
+	fs.BoolVar(&listCfg.All, 0, "all", "display all projects (including non-Git directories)")
 
-	fs := flag.NewFlagSet("list", flag.ExitOnError)
-	fs.BoolVar(&listCfg.all, "all", false, "display all projects (including non-Git directories)")
-
-	return &ffcli.Command{
-		Name:       "list",
-		ShortUsage: "proj list [prefix] [flags]",
-		ShortHelp:  "List all projects",
+	return &ff.Command{
+		Name:      "list",
+		Usage:     "proj list [prefix] [flags]",
+		ShortHelp: "List all projects",
 		LongHelp: `List all projects in the configured root directory.
 
 Optionally provide a prefix to filter projects by name.
 
 By default, only Git repositories are shown. Use --all to show all directories.`,
-		FlagSet: fs,
+		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			var prefix string
 			if len(args) > 0 {
 				prefix = args[0]
 			}
-			return runList(ctx, logger, projectsCfg, projectsLogger, listCfg, prefix)
+			return runList(ctx, logger, projectsCfg, projectsLogger, *listCfg, prefix)
 		},
 	}
 }
 
-func runList(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, listCfg listConfig, prefix string) error {
+func runList(_ context.Context, _ *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, listCfg listConfig, prefix string) error {
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
 
 	return projectSvc.Walk(func(d fs.DirEntry, p *projects.Project) error {
@@ -55,7 +53,7 @@ func runList(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Con
 		status := p.GetGitStatus()
 
 		// Skip non-Git directories unless --all is specified
-		if status == projects.GitStatusNotGit && !listCfg.all {
+		if status == projects.GitStatusNotGit && !listCfg.All {
 			return nil
 		}
 

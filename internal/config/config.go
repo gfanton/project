@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -11,16 +12,16 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/peterbourgon/ff/v3"
-	"github.com/peterbourgon/ff/v3/fftoml"
+	"github.com/peterbourgon/ff/v4"
+	"github.com/peterbourgon/ff/v4/fftoml"
 )
 
 // Config holds the global configuration for the project tool.
 type Config struct {
-	ConfigFile string
-	Debug      bool
-	RootDir    string
-	RootUser   string
+	ConfigFile string `ff:"long=config,  usage='configuration file path'"`
+	Debug      bool   `ff:"long=debug,   usage='enable debug logging'"`
+	RootDir    string `ff:"long=root,    usage='root directory for projects'"`
+	RootUser   string `ff:"long=user,    usage='default user for projects'"`
 }
 
 // NewConfig creates a new configuration with default values.
@@ -38,16 +39,29 @@ func NewConfig() (*Config, error) {
 }
 
 // Load loads configuration from flags, environment variables, and config file.
+// Note: This only parses global config flags (--debug, --root, --user, --config).
+// Subcommand flags and help are handled by the main command parser.
 func (c *Config) Load(args []string) error {
-	fs := createFlagSet(c)
+	// Filter args to only extract global config flags
+	// This is necessary because args may contain subcommands and their flags
+	filteredArgs := filterGlobalFlags(args)
 
-	err := ff.Parse(fs, args,
+	fs := ff.NewFlagSet("project")
+	if err := fs.AddStruct(c); err != nil {
+		return fmt.Errorf("failed to add config struct: %w", err)
+	}
+
+	err := ff.Parse(fs, filteredArgs,
 		ff.WithEnvVarPrefix("PROJECT"),
 		ff.WithConfigFileFlag("config"),
-		ff.WithAllowMissingConfigFile(true),
-		ff.WithConfigFileParser(fftoml.Parser),
+		ff.WithConfigAllowMissingFile(),
+		ff.WithConfigFileParser(fftoml.Parse),
 	)
 	if err != nil {
+		// Ignore help requests - those are handled by the main command parser
+		if errors.Is(err, ff.ErrHelp) || errors.Is(err, flag.ErrHelp) {
+			return nil
+		}
 		return fmt.Errorf("failed to parse configuration: %w", err)
 	}
 
@@ -61,6 +75,39 @@ func (c *Config) Load(args []string) error {
 	}
 
 	return nil
+}
+
+// filterGlobalFlags extracts only global config flags from args.
+// Global flags are: --debug, --root, --user, --config (and their values)
+func filterGlobalFlags(args []string) []string {
+	var filtered []string
+	globalFlags := map[string]bool{
+		"--debug":  false, // bool flag, no value
+		"--root":   true,  // string flag, has value
+		"--user":   true,  // string flag, has value
+		"--config": true,  // string flag, has value
+	}
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		// Check for --flag=value format
+		if strings.HasPrefix(arg, "--") {
+			parts := strings.SplitN(arg, "=", 2)
+			flagName := parts[0]
+
+			if hasValue, ok := globalFlags[flagName]; ok {
+				filtered = append(filtered, arg)
+				// If flag needs a value and wasn't provided with =, get next arg
+				if hasValue && len(parts) == 1 && i+1 < len(args) && !strings.HasPrefix(args[i+1], "-") {
+					i++
+					filtered = append(filtered, args[i])
+				}
+			}
+		}
+	}
+
+	return filtered
 }
 
 // Logger creates a structured logger based on the debug configuration.
@@ -138,16 +185,6 @@ func (h *ToolHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
 func (h *ToolHandler) WithGroup(name string) slog.Handler {
 	// For simplicity, we don't support groups in this tool handler
 	return h
-}
-
-// createFlagSet creates a flag set with the configuration options.
-func createFlagSet(cfg *Config) *flag.FlagSet {
-	fs := flag.NewFlagSet("project", flag.ExitOnError)
-	fs.StringVar(&cfg.RootDir, "root", cfg.RootDir, "root directory for projects")
-	fs.StringVar(&cfg.RootUser, "user", cfg.RootUser, "default user for projects")
-	fs.StringVar(&cfg.ConfigFile, "config", cfg.ConfigFile, "configuration file path")
-	fs.BoolVar(&cfg.Debug, "debug", cfg.Debug, "enable debug logging")
-	return fs
 }
 
 // ensureRootDir creates the root directory if it doesn't exist.

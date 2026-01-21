@@ -948,7 +948,7 @@ func TestWorkspaceFormat(t *testing.T) {
 				{Project: testProject, Workspace: "feature-auth", Distance: 0},
 			},
 			opts:     Options{Separator: "\n", AbsPath: true},
-			expected: tempDir + "/.workspace/user1/webapp.feature-auth",
+			expected: tempDir + "/.workspace/user1/webapp/feature-auth",
 		},
 	}
 

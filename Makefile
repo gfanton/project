@@ -1,16 +1,23 @@
-.PHONY: build build-tmux install test test-coverage test-shell test-integration test-tmux test-nix test-plugin lint clean tidy dev update-vendor-hash release
+# ---- Defensive Preamble
+.DELETE_ON_ERROR:
+MAKEFLAGS += --warn-undefined-variables
+SHELL := /bin/sh
+.SUFFIXES:
+.DEFAULT_GOAL := all
 
-# Variables
+# ---- Phony Targets
+.PHONY: all build build-tmux build-all install install-tmux install-all \
+	test test-coverage test-shell test-integration test-tmux test-nix test-plugin \
+	lint clean tidy dev update-vendor-hash release test-nix-tmux help
+
+# ---- Variables
 APP_NAME := proj
 TMUX_APP_NAME := proj-tmux
 BUILD_DIR := ./build
 CMD_DIR := ./cmd/proj
 TMUX_CMD_DIR := ./plugins/proj-tmux
 
-# Default target
-all: build
-
-# Build variables for version information
+# ---- Build Variables for Version Information
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "none")
 DATE ?= $(shell date -u '+%Y-%m-%d %H:%M:%S UTC')
@@ -23,52 +30,51 @@ BUILD_FLAGS := -ldflags "\
 	-X 'main.date=$(DATE)' \
 	-X 'main.builtBy=$(BUILT_BY)'"
 
-# Build the main application
-build:
+# ---- Default Target
+
+all: build build-tmux  ## Build both proj and proj-tmux binaries
+
+# ---- Build Targets
+
+build:  ## Build the main proj application
 	@mkdir -p $(BUILD_DIR)
 	go build $(BUILD_FLAGS) -o $(BUILD_DIR)/$(APP_NAME) $(CMD_DIR)
 
-# Build the tmux integration binary
-build-tmux:
+build-tmux:  ## Build the tmux integration binary
 	@mkdir -p $(BUILD_DIR)
-	go build -o $(BUILD_DIR)/$(TMUX_APP_NAME) $(TMUX_CMD_DIR)
+	go build $(BUILD_FLAGS) -o $(BUILD_DIR)/$(TMUX_APP_NAME) $(TMUX_CMD_DIR)
 
-# Build both binaries
-build-all: build build-tmux
+build-all: build build-tmux  ## Build both binaries (alias for all)
 
-# Install the main application to GOBIN
-install:
+# ---- Install Targets
+
+install:  ## Install proj to GOBIN
 	go install $(BUILD_FLAGS) $(CMD_DIR)
 
-# Install the tmux integration binary to GOBIN
-install-tmux:
-	go install $(TMUX_CMD_DIR)
+install-tmux:  ## Install proj-tmux to GOBIN
+	go install $(BUILD_FLAGS) $(TMUX_CMD_DIR)
 
-# Install both binaries
-install-all: install install-tmux
+install-all: install install-tmux  ## Install both binaries
 
-# Run tests
-test:
+# ---- Test Targets
+
+test:  ## Run all Go unit tests
 	go test -v ./...
 
-# Run tests with coverage
-test-coverage:
+test-coverage:  ## Run tests with coverage report
 	go test -cover ./...
 
-# Run Go-based shell tests (similar to zoxide)
-test-shell:
+test-shell:  ## Run shell integration tests
 	go test -v ./internal/shell/
 
-# Run integration tests (BATS + Expect)
-test-integration:
+test-integration:  ## Run integration tests (BATS + Expect)
 	@echo "Running integration tests..."
 	./tests/run_tests.sh
 
-# Run tmux unit tests with BATS
-test-tmux: build build-tmux
+test-tmux: build build-tmux  ## Run tmux unit tests with BATS
 	@echo "Running tmux unit tests..."
 	@if command -v bats >/dev/null 2>&1; then \
-		if [[ -d tests/unit && $$(find tests/unit -name "*.bats" | wc -l) -gt 0 ]]; then \
+		if [ -d tests/unit ] && [ "$$(find tests/unit -name '*.bats' | wc -l)" -gt 0 ]; then \
 			bats tests/unit/; \
 		else \
 			echo "No BATS unit tests found in tests/unit/"; \
@@ -78,74 +84,14 @@ test-tmux: build build-tmux
 		exit 1; \
 	fi
 
-# Run all tests in Nix environment
-test-nix:
+test-nix:  ## Run all tests in Nix environment
 	nix develop .#testing --command bash -c "make test && make test-tmux"
 
-# Run linting
-lint:
-	go vet ./...
-	go fmt ./...
-
-# Clean build artifacts
-clean:
-	rm -rf $(BUILD_DIR) coverage.out coverage.html
-
-# Tidy dependencies
-tidy:
-	go mod tidy
-
-# Development target - build and run
-dev: build
-	$(BUILD_DIR)/$(APP_NAME)
-
-# Update vendorHash in flake.nix with the correct hash
-update-vendor-hash:
-	@./scripts/update-vendor-hash.sh
-
-# Release target - calls release.sh
-release:
-	@echo "Use: ./scripts/release/release.sh [version]"
-	@echo "Example: ./scripts/release/release.sh v1.2.3"
-	@echo "Example: ./scripts/release/release.sh  (interactive)"
-
-# Tmux integration testing targets  
-test-tmux-unit: build build-tmux
-	@echo "Running tmux unit tests..."
-	@if command -v bats >/dev/null 2>&1; then \
-		bats tests/unit/; \
-	else \
-		echo "BATS not found. Use: nix develop .#testing"; \
-	fi
-
-# Nix-based testing targets
-test-nix-tmux:
+test-nix-tmux:  ## Run tmux tests via Nix checks
 	@echo "Running tmux tests in Nix environment..."
 	nix build .#checks.$$(nix eval --impure --expr builtins.currentSystem).tmux-unit-tests -L
 
-# Help target for tmux testing
-help-tmux:
-	@echo "Tmux Integration Testing Targets:"
-	@echo "  build-tmux             Build proj-tmux binary"
-	@echo "  build-all              Build both proj and proj-tmux binaries"
-	@echo "  install-tmux           Install proj-tmux binary to GOBIN"
-	@echo "  install-all            Install both binaries to GOBIN"
-	@echo "  test-tmux-unit         Run BATS unit tests for tmux integration"
-	@echo "  test-nix-tmux          Run tmux tests in Nix environment"
-	@echo "  test-plugin            Test tmux plugin structure and installation"
-	@echo ""
-	@echo "Plugin Structure:"
-	@echo "  plugins/proj-tmux/plugin/  - Main tmux plugin directory"
-	@echo "  project.tmux               - TPM entry point"
-	@echo ""
-	@echo "Development Environment:"
-	@echo "  nix develop .#testing  Enter testing environment with all tools"
-	@echo ""
-	@echo "Manual Testing:"
-	@echo "  bats tests/unit/       Run BATS tests manually"
-
-# Test tmux plugin installation
-test-plugin: build-all
+test-plugin: build-all  ## Test tmux plugin structure and installation
 	@echo "Testing tmux plugin installation..."
 	@if ! command -v tmux >/dev/null 2>&1; then \
 		echo "Error: tmux not found"; \
@@ -160,7 +106,39 @@ test-plugin: build-all
 	@echo ""
 	@echo "To test manually:"
 	@echo "  1. Add to ~/.tmux.conf: run-shell '$(PWD)/plugins/proj-tmux/plugin/proj-tmux.tmux'"
-	@echo "  2. Or use TPM: set -g @plugin '$(shell basename $(PWD))'"
+	@echo "  2. Or use TPM: set -g @plugin '$$(basename $(PWD))'"
 	@echo "  3. Reload tmux: tmux source-file ~/.tmux.conf"
 
-.PHONY: build-tmux build-all install-tmux install-all test-tmux-unit test-nix-tmux test-plugin help-tmux
+# ---- Development Targets
+
+lint:  ## Run go vet and go fmt
+	go vet ./...
+	go fmt ./...
+
+clean:  ## Remove build artifacts
+	rm -rf $(BUILD_DIR) coverage.out coverage.html
+
+tidy:  ## Clean up Go dependencies
+	go mod tidy
+
+dev: build  ## Build and run proj (use ARGS= to pass arguments)
+	$(BUILD_DIR)/$(APP_NAME) $(ARGS)
+
+# ---- Release Targets
+
+update-vendor-hash:  ## Update vendorHash in flake.nix
+	@./scripts/update-vendor-hash.sh
+
+release:  ## Show release instructions
+	@echo "Use: ./scripts/release/release.sh [version]"
+	@echo "Example: ./scripts/release/release.sh v1.2.3"
+	@echo "Example: ./scripts/release/release.sh  (interactive)"
+
+# ---- Help Target
+
+help:  ## Show this help message
+	@echo "Usage: make [target]"
+	@echo ""
+	@echo "Targets:"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  %-20s %s\n", $$1, $$2}'

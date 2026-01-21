@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"flag"
 	"fmt"
 	"log/slog"
 	"os"
@@ -10,23 +9,24 @@ import (
 	"strings"
 
 	"github.com/gfanton/projects"
-	"github.com/peterbourgon/ff/v3/ffcli"
+	"github.com/peterbourgon/ff/v4"
 )
 
-func newStatusCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ffcli.Command {
-	var statusCfg struct {
-		format string
-		short  bool
-	}
+type statusConfig struct {
+	Format string
+	Short  bool
+}
 
-	fs := flag.NewFlagSet("status", flag.ExitOnError)
-	fs.StringVar(&statusCfg.format, "format", "#{project}", "status format string")
-	fs.BoolVar(&statusCfg.short, "short", false, "show short status")
+func newStatusCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
+	statusCfg := &statusConfig{}
+	fs := ff.NewFlagSet("status")
+	fs.StringVar(&statusCfg.Format, 0, "format", "#{project}", "status format string")
+	fs.BoolVar(&statusCfg.Short, 0, "short", "show short status")
 
-	return &ffcli.Command{
-		Name:       "status",
-		ShortUsage: "proj-tmux status [flags]",
-		ShortHelp:  "Show project status for tmux status bar",
+	return &ff.Command{
+		Name:      "status",
+		Usage:     "proj-tmux status [flags]",
+		ShortHelp: "Show project status for tmux status bar",
 		LongHelp: `Show project and workspace status information for tmux status bar.
 
 Format variables:
@@ -40,9 +40,9 @@ Format variables:
 FLAGS:
   --format        Custom format string (default: "#{project}")
   --short         Show abbreviated status`,
-		FlagSet: fs,
+		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
-			return runStatus(ctx, logger, projectsCfg, projectsLogger, statusCfg.format, statusCfg.short)
+			return runStatus(ctx, logger, projectsCfg, projectsLogger, statusCfg.Format, statusCfg.Short)
 		},
 	}
 }
