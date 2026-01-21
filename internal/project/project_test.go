@@ -437,7 +437,9 @@ func TestFindFromPath(t *testing.T) {
 		"user1/project1",
 		"user2/project2",
 		"org/deep-project/subdirectory",
+		"org/dot-workspace-project/.workspace/something", // .workspace in middle of path
 		".workspace/user1/project1/feature-branch",
+		".workspace/user1/project1/feature-branch/src/pkg", // deeply nested
 		".workspace/user2/project2",
 		".workspace/user1",
 	}
@@ -535,6 +537,26 @@ func TestFindFromPath(t *testing.T) {
 			path:        filepath.Join(tempDir, ".workspace"),
 			expectError: true,
 			errorMsg:    "does not contain organization/project structure",
+		},
+		{
+			name: "deeply nested workspace path",
+			path: filepath.Join(tempDir, ".workspace/user1/project1/feature-branch/src/pkg"),
+			expected: &Project{
+				Path:         filepath.Join(tempDir, "user1/project1"),
+				Name:         "project1",
+				Organisation: "user1",
+			},
+			expectError: false,
+		},
+		{
+			name: "workspace in middle of path is not special",
+			path: filepath.Join(tempDir, "org/dot-workspace-project/.workspace/something"),
+			expected: &Project{
+				Path:         filepath.Join(tempDir, "org/dot-workspace-project"),
+				Name:         "dot-workspace-project",
+				Organisation: "org",
+			},
+			expectError: false,
 		},
 	}
 

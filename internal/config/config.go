@@ -16,6 +16,8 @@ import (
 	"github.com/peterbourgon/ff/v4/fftoml"
 )
 
+const defaultDirPerms = 0755
+
 // Config holds the global configuration for the project tool.
 type Config struct {
 	ConfigFile string `ff:"long=config,  usage='configuration file path'"`
@@ -175,15 +177,17 @@ func (h *ToolHandler) Handle(_ context.Context, r slog.Record) error {
 	return err
 }
 
-// WithAttrs returns a new handler with the given attributes
+// WithAttrs returns a new handler with the given attributes.
+// Note: This CLI tool handler does not support persistent attributes.
+// Attributes passed here are ignored; use per-record attributes instead.
 func (h *ToolHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	// For simplicity, we don't support persistent attributes in this tool handler
 	return h
 }
 
-// WithGroup returns a new handler with the given group name
+// WithGroup returns a new handler with the given group name.
+// Note: This CLI tool handler does not support attribute grouping.
+// Group names are ignored in the output.
 func (h *ToolHandler) WithGroup(name string) slog.Handler {
-	// For simplicity, we don't support groups in this tool handler
 	return h
 }
 
@@ -191,8 +195,8 @@ func (h *ToolHandler) WithGroup(name string) slog.Handler {
 func (c *Config) ensureRootDir() error {
 	if _, err := os.Stat(c.RootDir); os.IsNotExist(err) {
 		slog.Info("creating root directory", "path", c.RootDir)
-		if err := os.MkdirAll(c.RootDir, 0755); err != nil {
-			return fmt.Errorf("failed to create root directory %s: %w", c.RootDir, err)
+		if err := os.MkdirAll(c.RootDir, defaultDirPerms); err != nil {
+			return fmt.Errorf("create root directory %s: %w", c.RootDir, err)
 		}
 	}
 	return nil

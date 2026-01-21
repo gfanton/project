@@ -13,17 +13,21 @@ import (
 	"github.com/gfanton/projects/internal/project"
 )
 
+const defaultDirPerms = 0755
+
 // encodeBranch converts branch name to safe directory name.
 // Replaces "/" with "--" to avoid subdirectory creation.
 func encodeBranch(branch string) string {
 	return strings.ReplaceAll(branch, "/", "--")
 }
 
+// Service provides workspace management operations for git worktrees.
 type Service struct {
 	logger      *slog.Logger
 	projectRoot string
 }
 
+// Workspace represents a git worktree associated with a project and branch.
 type Workspace struct {
 	Project project.Project
 	Branch  string
@@ -97,7 +101,7 @@ func (s *Service) addPullRequestWorkspace(ctx context.Context, proj project.Proj
 		return fmt.Errorf("workspace already exists: %s", workspacePath)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(workspacePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(workspacePath), defaultDirPerms); err != nil {
 		return fmt.Errorf("failed to create workspace directory: %w", err)
 	}
 
@@ -141,7 +145,7 @@ func (s *Service) Add(ctx context.Context, proj project.Project, branch string) 
 		return fmt.Errorf("workspace already exists: %s", workspacePath)
 	}
 
-	if err := os.MkdirAll(filepath.Dir(workspacePath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(workspacePath), defaultDirPerms); err != nil {
 		return fmt.Errorf("failed to create workspace directory: %w", err)
 	}
 

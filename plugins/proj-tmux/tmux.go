@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os/exec"
@@ -45,12 +46,13 @@ func (s *TmuxService) SessionExists(ctx context.Context, sessionName string) (bo
 	err := cmd.Run()
 	if err != nil {
 		// tmux returns non-zero exit code if session doesn't exist
-		if exitError, ok := err.(*exec.ExitError); ok {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
 			if exitError.ExitCode() == 1 {
 				return false, nil
 			}
 		}
-		return false, fmt.Errorf("failed to check session existence: %w", err)
+		return false, fmt.Errorf("check session existence: %w", err)
 	}
 	return true, nil
 }
@@ -87,12 +89,13 @@ func (s *TmuxService) ListSessions(ctx context.Context) ([]string, error) {
 	output, err := cmd.Output()
 	if err != nil {
 		// Handle case where no sessions exist
-		if exitError, ok := err.(*exec.ExitError); ok {
+		var exitError *exec.ExitError
+		if errors.As(err, &exitError) {
 			if exitError.ExitCode() == 1 {
 				return []string{}, nil
 			}
 		}
-		return nil, fmt.Errorf("failed to list sessions: %w", err)
+		return nil, fmt.Errorf("list sessions: %w", err)
 	}
 
 	sessions := strings.Split(strings.TrimSpace(string(output)), "\n")

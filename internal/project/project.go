@@ -18,6 +18,8 @@ const (
 	DefaultProvider = GitHubProvider
 	// WalkDepth is the depth at which we walk project directories (user/project).
 	WalkDepth = 1
+	// WorkspaceDir is the directory name used for workspace (worktree) storage.
+	WorkspaceDir = ".workspace"
 )
 
 // Project represents a project with its organization and name.
@@ -115,11 +117,11 @@ const (
 // GetGitStatus returns the Git status of the project.
 func (p *Project) GetGitStatus() GitStatus {
 	_, err := p.OpenRepository()
-	switch err {
-	case git.ErrRepositoryNotExists:
-		return GitStatusNotGit
-	case nil:
+	switch {
+	case err == nil:
 		return GitStatusValid
+	case errors.Is(err, git.ErrRepositoryNotExists):
+		return GitStatusNotGit
 	default:
 		return GitStatusInvalid
 	}
@@ -198,29 +200,33 @@ func FindFromPath(rootDir, path string) (*Project, error) {
 		return nil, fmt.Errorf("failed to get absolute path: %w", err)
 	}
 
-	rootDir, err = filepath.Abs(rootDir)
+	absRootDir, err := filepath.Abs(rootDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get absolute root dir: %w", err)
 	}
 
-	if !strings.HasPrefix(absPath, rootDir) {
-		return nil, errors.New("path is not inside projects root directory")
+	relPath, err := filepath.Rel(absRootDir, absPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compute relative path: %w", err)
 	}
 
-	relPath := strings.TrimPrefix(absPath, rootDir)
-	relPath = strings.TrimPrefix(relPath, string(os.PathSeparator))
-
-	if relPath == "" {
-		return nil, errors.New("path is the root directory")
+	// filepath.Rel returns ".." prefix if path is outside rootDir
+	if relPath == "." || strings.HasPrefix(relPath, "..") {
+		if relPath == "." {
+			return nil, errors.New("path is the root directory")
+		}
+		return nil, errors.New("path is not inside projects root directory")
 	}
 
 	parts := strings.Split(relPath, string(os.PathSeparator))
 
-	// Handle .workspace directory: structure is .workspace/<org>/<name>/<branch>
+	// Path structures:
+	// - Regular:   <org>/<name>[/...]
+	// - Workspace: .workspace/<org>/<name>/<branch>[/...]
 	orgIdx := 0
 	nameIdx := 1
-	if len(parts) > 0 && parts[0] == ".workspace" {
-		orgIdx = 1
+	if len(parts) > 0 && parts[0] == WorkspaceDir {
+		orgIdx = 1 // Skip .workspace prefix
 		nameIdx = 2
 	}
 
@@ -232,7 +238,7 @@ func FindFromPath(rootDir, path string) (*Project, error) {
 	name := parts[nameIdx]
 
 	return &Project{
-		Path:         filepath.Join(rootDir, org, name),
+		Path:         filepath.Join(absRootDir, org, name),
 		Name:         name,
 		Organisation: org,
 	}, nil

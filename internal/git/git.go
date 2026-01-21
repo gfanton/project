@@ -11,6 +11,8 @@ import (
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
 )
 
+const defaultDirPerms = 0755
+
 // Client provides Git operations.
 type Client struct {
 	logger *slog.Logger
@@ -40,8 +42,8 @@ func (c *Client) Clone(ctx context.Context, opts CloneOptions) error {
 	)
 
 	// Ensure destination directory exists
-	if err := os.MkdirAll(opts.Destination, 0755); err != nil {
-		return fmt.Errorf("failed to create destination directory: %w", err)
+	if err := os.MkdirAll(opts.Destination, defaultDirPerms); err != nil {
+		return fmt.Errorf("create destination directory: %w", err)
 	}
 
 	cloneOpts := &git.CloneOptions{

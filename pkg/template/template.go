@@ -19,17 +19,17 @@ type Data struct {
 func Render(name string, data Data) (string, error) {
 	tmplData, err := templates.ReadFile(name + ".init")
 	if err != nil {
-		return "", fmt.Errorf("failed to read template %s: %w", name, err)
+		return "", fmt.Errorf("read template %s: %w", name, err)
 	}
 
 	tmpl, err := template.New(name).Parse(string(tmplData))
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template %s: %w", name, err)
+		return "", fmt.Errorf("parse template %s: %w", name, err)
 	}
 
 	var buf strings.Builder
 	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", fmt.Errorf("failed to execute template %s: %w", name, err)
+		return "", fmt.Errorf("execute template %s: %w", name, err)
 	}
 
 	return buf.String(), nil

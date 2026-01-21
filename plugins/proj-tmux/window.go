@@ -249,7 +249,7 @@ func resolveProjectForWindow(projectsCfg *projects.Config, projectsLogger projec
 	}
 
 	// Try to detect from current tmux session
-	if currentSession := os.Getenv("TMUX_SESSION"); currentSession != "" && strings.HasPrefix(currentSession, "proj-") {
+	if currentSession := os.Getenv("TMUX_SESSION"); currentSession != "" && strings.HasPrefix(currentSession, sessionPrefix) {
 		if projectStr := extractProjectFromSession(currentSession); projectStr != "" {
 			return projectSvc.ParseProject(projectStr)
 		}

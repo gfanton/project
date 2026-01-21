@@ -72,7 +72,7 @@ func runStatus(ctx context.Context, logger *slog.Logger, projectsCfg *projects.C
 	var currentWorkspace string
 
 	// Try to extract from tmux session name first
-	if currentSession != "" && strings.HasPrefix(currentSession, "proj-") {
+	if currentSession != "" && strings.HasPrefix(currentSession, sessionPrefix) {
 		if projectStr := extractProjectFromSession(currentSession); projectStr != "" {
 			if proj, err := projectSvc.ParseProject(projectStr); err == nil {
 				currentProject = proj

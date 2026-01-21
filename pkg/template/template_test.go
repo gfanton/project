@@ -115,12 +115,12 @@ func TestRenderErrorHandling(t *testing.T) {
 		{
 			name:         "template not found",
 			templateName: "nonexistent",
-			expectError:  "failed to read template",
+			expectError:  "read template",
 		},
 		{
 			name:         "empty template name",
 			templateName: "",
-			expectError:  "failed to read template",
+			expectError:  "read template",
 		},
 	}
 

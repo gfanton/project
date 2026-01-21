@@ -12,6 +12,17 @@ import (
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
+// ---- Distance Constants
+const (
+	distanceExactName     = 1
+	distanceExactOrg      = 2
+	distanceNameContains  = 10
+	distanceOrgContains   = 20
+	distanceFuzzyFallback = 50
+	distanceBranchSubstr  = 5
+	distanceBranchFuzzy   = 20
+)
+
 // pathsEqual compares paths with case-insensitivity on macOS/Windows.
 func pathsEqual(a, b string) bool {
 	if runtime.GOOS == "darwin" || runtime.GOOS == "windows" {
@@ -119,15 +130,15 @@ func (s *QueryService) searchProjects(ctx context.Context, opts SearchOptions, e
 		} else {
 			switch {
 			case qLower == pName:
-				distance = 1
+				distance = distanceExactName
 			case qLower == pOrg:
-				distance = 2
+				distance = distanceExactOrg
 			case strings.Contains(pName, qLower):
-				distance = 10 + fuzzy.RankMatchFold(qLower, pName)
+				distance = distanceNameContains + fuzzy.RankMatchFold(qLower, pName)
 			case strings.Contains(pOrg, qLower):
-				distance = 20 + fuzzy.RankMatchFold(qLower, pOrg)
+				distance = distanceOrgContains + fuzzy.RankMatchFold(qLower, pOrg)
 			default:
-				distance = 50 + fuzzy.RankMatchFold(qLower, projectLower)
+				distance = distanceFuzzyFallback + fuzzy.RankMatchFold(qLower, projectLower)
 			}
 		}
 
@@ -254,12 +265,13 @@ func (s *QueryService) calculateWorkspaceDistance(projectQuery, branchQuery, pro
 		projectLower := strings.ToLower(projectName)
 		queryLower := strings.ToLower(projectQuery)
 
-		if projectLower == queryLower {
-			distance += 0 // Exact match
-		} else if strings.Contains(projectLower, queryLower) {
-			distance += 10 // Substring match
-		} else {
-			distance += 50 + fuzzy.RankMatchFold(projectQuery, projectName) // Fuzzy match
+		switch {
+		case projectLower == queryLower:
+			// Exact match: no distance added
+		case strings.Contains(projectLower, queryLower):
+			distance += distanceNameContains
+		default:
+			distance += distanceFuzzyFallback + fuzzy.RankMatchFold(projectQuery, projectName)
 		}
 	}
 
@@ -268,12 +280,13 @@ func (s *QueryService) calculateWorkspaceDistance(projectQuery, branchQuery, pro
 		branchLower := strings.ToLower(branchName)
 		queryLower := strings.ToLower(branchQuery)
 
-		if branchLower == queryLower {
-			distance += 0 // Exact match
-		} else if strings.Contains(branchLower, queryLower) {
-			distance += 5 // Substring match
-		} else {
-			distance += 20 + fuzzy.RankMatchFold(branchQuery, branchName) // Fuzzy match
+		switch {
+		case branchLower == queryLower:
+			// Exact match: no distance added
+		case strings.Contains(branchLower, queryLower):
+			distance += distanceBranchSubstr
+		default:
+			distance += distanceBranchFuzzy + fuzzy.RankMatchFold(branchQuery, branchName)
 		}
 	}
 

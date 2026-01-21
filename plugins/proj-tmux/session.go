@@ -11,6 +11,8 @@ import (
 	"github.com/peterbourgon/ff/v4"
 )
 
+const sessionPrefix = "proj-"
+
 func newSessionCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
 	return &ff.Command{
 		Name:      "session",
@@ -161,7 +163,7 @@ func runSessionList(ctx context.Context, logger *slog.Logger, projectsCfg *proje
 	// Filter to show only proj-tmux managed sessions
 	var projSessions []string
 	for _, session := range sessions {
-		if strings.HasPrefix(session, "proj-") {
+		if strings.HasPrefix(session, sessionPrefix) {
 			projSessions = append(projSessions, session)
 		}
 	}
@@ -190,7 +192,7 @@ func runSessionCurrent(ctx context.Context, logger *slog.Logger, projectsCfg *pr
 
 	// Try to get current tmux session
 	currentSession, err := tmuxSvc.CurrentSession(ctx)
-	if err == nil && strings.HasPrefix(currentSession, "proj-") {
+	if err == nil && strings.HasPrefix(currentSession, sessionPrefix) {
 		if projectName := extractProjectFromSession(currentSession); projectName != "" {
 			fmt.Printf("Current project session: %s (%s)\n", projectName, currentSession)
 			return nil
@@ -244,18 +246,18 @@ func newTmuxServiceFromEnv(logger *slog.Logger) *TmuxService {
 func generateSessionName(project *projects.Project) string {
 	org := strings.ReplaceAll(project.Organisation, ".", "-")
 	name := strings.ReplaceAll(project.Name, ".", "-")
-	return fmt.Sprintf("proj-%s_%s", org, name)
+	return fmt.Sprintf("%s%s_%s", sessionPrefix, org, name)
 }
 
 // extractProjectFromSession extracts project name from session name.
 // Handles both new format (proj-org_name) and legacy format (proj-org-name).
 func extractProjectFromSession(sessionName string) string {
-	if !strings.HasPrefix(sessionName, "proj-") {
+	if !strings.HasPrefix(sessionName, sessionPrefix) {
 		return ""
 	}
 
-	// Remove "proj-" prefix
-	remainder := strings.TrimPrefix(sessionName, "proj-")
+	// Remove session prefix
+	remainder := strings.TrimPrefix(sessionName, sessionPrefix)
 
 	// New format: split by underscore (unambiguous separator)
 	if strings.Contains(remainder, "_") {
