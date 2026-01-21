@@ -39,12 +39,14 @@ Commands:
 
 type sessionCreateConfig struct {
 	AutoSwitch bool
+	NoSwitch   bool
 }
 
 func newSessionCreateCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
 	createCfg := &sessionCreateConfig{AutoSwitch: true}
 	fs := ff.NewFlagSet("session create")
 	fs.BoolVar(&createCfg.AutoSwitch, 0, "switch", "automatically switch to created session")
+	fs.BoolVar(&createCfg.NoSwitch, 0, "no-switch", "don't switch, just print session name (for scripts)")
 
 	return &ff.Command{
 		Name:      "create",
@@ -64,7 +66,9 @@ FLAGS:
 			}
 
 			projectName := args[0]
-			return runSessionCreate(ctx, logger, projectsCfg, projectsLogger, projectName, createCfg.AutoSwitch)
+			// NoSwitch overrides AutoSwitch
+			autoSwitch := createCfg.AutoSwitch && !createCfg.NoSwitch
+			return runSessionCreate(ctx, logger, projectsCfg, projectsLogger, projectName, autoSwitch, createCfg.NoSwitch)
 		},
 	}
 }
@@ -110,7 +114,7 @@ func newSessionSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, 
 	}
 }
 
-func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, projectName string, autoSwitch bool) error {
+func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, projectName string, autoSwitch bool, printSessionName bool) error {
 	projectSvc := projects.NewProjectService(projectsCfg, projectsLogger)
 
 	tmuxSvc := newTmuxServiceFromEnv(logger)
@@ -132,6 +136,10 @@ func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 
 	if exists {
 		logger.Info("session already exists", "session", sessionName)
+		if printSessionName {
+			fmt.Println(sessionName)
+			return nil
+		}
 		if autoSwitch {
 			return tmuxSvc.SwitchSession(ctx, sessionName)
 		}
@@ -144,6 +152,11 @@ func runSessionCreate(ctx context.Context, logger *slog.Logger, projectsCfg *pro
 	}
 
 	logger.Info("session created", "session", sessionName, "project", project.String())
+
+	if printSessionName {
+		fmt.Println(sessionName)
+		return nil
+	}
 
 	if autoSwitch {
 		return tmuxSvc.SwitchSession(ctx, sessionName)
@@ -217,7 +230,7 @@ func runSessionCurrent(ctx context.Context, logger *slog.Logger, projectsCfg *pr
 
 func runSessionSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, projectName string) error {
 	// Create session if it doesn't exist, then switch
-	if err := runSessionCreate(ctx, logger, projectsCfg, projectsLogger, projectName, false); err != nil {
+	if err := runSessionCreate(ctx, logger, projectsCfg, projectsLogger, projectName, false, false); err != nil {
 		return err
 	}
 

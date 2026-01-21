@@ -129,19 +129,40 @@ setup_status_bar() {
     fi
 }
 
-# Verify proj-tmux binary is available
+# Verify proj-tmux binary is available and store paths for scripts
 check_dependencies() {
-    if ! command -v proj-tmux >/dev/null 2>&1; then
+    local proj_bin proj_tmux_bin
+
+    # Check if paths were pre-set (e.g., by make dev-tmux for development)
+    proj_tmux_bin="$(tmux show-environment -g PROJ_TMUX_BIN 2>/dev/null | cut -d= -f2-)"
+    proj_bin="$(tmux show-environment -g PROJ_BIN 2>/dev/null | cut -d= -f2-)"
+
+    # Validate pre-set proj-tmux path or find in PATH
+    if [[ -n "$proj_tmux_bin" && -x "$proj_tmux_bin" ]]; then
+        : # Already set and executable
+    elif proj_tmux_bin="$(command -v proj-tmux 2>/dev/null)"; then
+        : # Found in PATH
+    else
         err "proj-tmux binary not found in PATH"
         tmux display-message "Error: proj-tmux binary not found in PATH"
         return 1
     fi
 
-    if ! command -v proj >/dev/null 2>&1; then
+    # Validate pre-set proj path or find in PATH
+    if [[ -n "$proj_bin" && -x "$proj_bin" ]]; then
+        : # Already set and executable
+    elif proj_bin="$(command -v proj 2>/dev/null)"; then
+        : # Found in PATH
+    else
         err "proj binary not found in PATH"
         tmux display-message "Error: proj binary not found in PATH"
         return 1
     fi
+
+    # Store paths for use by scripts running in popup environments
+    # where PATH may not include the binary locations
+    tmux set-environment -g PROJ_BIN "$proj_bin"
+    tmux set-environment -g PROJ_TMUX_BIN "$proj_tmux_bin"
 
     return 0
 }

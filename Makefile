@@ -8,7 +8,7 @@ SHELL := /bin/sh
 # ---- Phony Targets
 .PHONY: all build build-tmux build-all install install-tmux install-all \
 	test test-coverage test-shell test-integration test-tmux test-nix test-plugin \
-	lint clean tidy dev update-vendor-hash release test-nix-tmux help
+	lint clean tidy dev dev-tmux update-vendor-hash release test-nix-tmux help
 
 # ---- Variables
 APP_NAME := proj
@@ -110,6 +110,20 @@ test-plugin: build-all  ## Test tmux plugin structure and installation
 	@echo "  3. Reload tmux: tmux source-file ~/.tmux.conf"
 
 # ---- Development Targets
+
+dev-tmux: build-all  ## Build and load tmux plugin into current session
+	@if [ -z "$$TMUX" ]; then \
+		echo "Error: Not inside a tmux session"; \
+		exit 1; \
+	fi
+	@echo "Loading plugin with binaries from $(BUILD_DIR)..."
+	tmux set-environment -g PROJ_BIN "$(abspath $(BUILD_DIR))/proj"
+	tmux set-environment -g PROJ_TMUX_BIN "$(abspath $(BUILD_DIR))/proj-tmux"
+	tmux run-shell "$(abspath plugins/proj-tmux/plugin/proj-tmux.tmux)"
+	@echo "Plugin loaded. Environment variables:"
+	@tmux show-environment -g | grep PROJ || true
+	@echo ""
+	@echo "Test with: Prefix+Ctrl+P (sessions), Prefix+Ctrl+W (windows), Prefix+W (workspace menu)"
 
 lint:  ## Run go vet and go fmt
 	go vet ./...

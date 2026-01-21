@@ -34,13 +34,15 @@ Commands:
 }
 
 type windowCreateConfig struct {
-	AutoSwitch bool
+	AutoSwitch  bool
+	SessionName string
 }
 
 func newWindowCreateCommand(logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger) *ff.Command {
 	createCfg := &windowCreateConfig{AutoSwitch: true}
 	fs := ff.NewFlagSet("window create")
 	fs.BoolVar(&createCfg.AutoSwitch, 0, "switch", "automatically switch to created window")
+	fs.StringVar(&createCfg.SessionName, 0, "session", "", "target session name (default: derive from project)")
 
 	return &ff.Command{
 		Name:      "create",
@@ -48,12 +50,13 @@ func newWindowCreateCommand(logger *slog.Logger, projectsCfg *projects.Config, p
 		ShortHelp: "Create tmux window for workspace",
 		LongHelp: `Create a tmux window for the specified workspace.
 
-The window will be created in the appropriate project session and will
-be named after the workspace branch. The working directory will be set
-to the workspace path.
+The window will be created in the specified session (or the project session
+if not specified) and will be named after the workspace branch. The working
+directory will be set to the workspace path.
 
 FLAGS:
-  --switch    Automatically switch to the created window (default: true)`,
+  --switch     Automatically switch to the created window (default: true)
+  --session    Target session name (default: derive from project)`,
 		Flags: fs,
 		Exec: func(ctx context.Context, args []string) error {
 			if len(args) < 1 {
@@ -66,7 +69,7 @@ FLAGS:
 				projectName = args[1]
 			}
 
-			return runWindowCreate(ctx, logger, projectsCfg, projectsLogger, workspace, projectName, createCfg.AutoSwitch)
+			return runWindowCreate(ctx, logger, projectsCfg, projectsLogger, workspace, projectName, createCfg.SessionName, createCfg.AutoSwitch)
 		},
 	}
 }
@@ -110,7 +113,7 @@ func newWindowSwitchCommand(logger *slog.Logger, projectsCfg *projects.Config, p
 	}
 }
 
-func runWindowCreate(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, workspace, projectName string, autoSwitch bool) error {
+func runWindowCreate(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, workspace, projectName, targetSession string, autoSwitch bool) error {
 	project, err := resolveProjectForWindow(projectsCfg, projectsLogger, projectName)
 	if err != nil {
 		return err
@@ -134,24 +137,50 @@ func runWindowCreate(ctx context.Context, logger *slog.Logger, projectsCfg *proj
 	}
 
 	if targetWorkspace == nil {
-		return fmt.Errorf("workspace '%s' not found in project %s", workspace, project.String())
+		// Auto-create workspace if it doesn't exist
+		logger.Info("workspace not found, creating", "workspace", workspace, "project", project.String())
+		if err := workspaceSvc.Add(ctx, *project, workspace); err != nil {
+			return fmt.Errorf("workspace '%s' not found and auto-create failed: %w", workspace, err)
+		}
+
+		// Re-list workspaces to get the new one
+		workspaces, err = workspaceSvc.List(ctx, *project)
+		if err != nil {
+			return fmt.Errorf("failed to re-list workspaces: %w", err)
+		}
+
+		// Find the newly created workspace
+		for _, ws := range workspaces {
+			if ws.Branch == workspace {
+				targetWorkspace = &ws
+				break
+			}
+		}
+
+		if targetWorkspace == nil {
+			return fmt.Errorf("workspace '%s' created but not found in list", workspace)
+		}
 	}
 
-	sessionName := generateSessionName(project)
+	// Use provided session name or derive from project
+	sessionName := targetSession
+	if sessionName == "" {
+		sessionName = generateSessionName(project)
+	}
 	windowName := workspace
 
 	logger.Debug("creating window", "project", project.String(), "workspace", workspace, "session", sessionName, "window", windowName)
 
-	// Ensure project session exists
+	// Ensure session exists
 	sessionExists, err := tmuxSvc.SessionExists(ctx, sessionName)
 	if err != nil {
 		return fmt.Errorf("failed to check session existence: %w", err)
 	}
 
 	if !sessionExists {
-		logger.Info("creating project session first", "session", sessionName)
+		logger.Info("creating session first", "session", sessionName)
 		if err := tmuxSvc.NewSession(ctx, sessionName, project.Path); err != nil {
-			return fmt.Errorf("failed to create project session: %w", err)
+			return fmt.Errorf("failed to create session: %w", err)
 		}
 	}
 
@@ -223,8 +252,8 @@ func runWindowList(ctx context.Context, logger *slog.Logger, projectsCfg *projec
 }
 
 func runWindowSwitch(ctx context.Context, logger *slog.Logger, projectsCfg *projects.Config, projectsLogger projects.Logger, workspace, projectName string) error {
-	// Create window if it doesn't exist, then switch
-	if err := runWindowCreate(ctx, logger, projectsCfg, projectsLogger, workspace, projectName, false); err != nil {
+	// Create window if it doesn't exist, then switch (use project-derived session)
+	if err := runWindowCreate(ctx, logger, projectsCfg, projectsLogger, workspace, projectName, "", false); err != nil {
 		return err
 	}
 

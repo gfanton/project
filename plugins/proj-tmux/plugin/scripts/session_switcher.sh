@@ -69,7 +69,7 @@ show_session_menu() {
     
     # Add separator and new session option
     menu_cmd="$menu_cmd '' '' ''"  # separator
-    menu_cmd="$menu_cmd 'New Project Session...' 'n' 'run-shell \"$(dirname "$0")/project_popup.sh\"'"
+    menu_cmd="$menu_cmd 'New Project Session...' 'n' 'run-shell \"$(dirname "${BASH_SOURCE[0]}")/project_popup.sh\"'"
     menu_cmd="$menu_cmd '' '' ''"  # separator
     
     # Add session items

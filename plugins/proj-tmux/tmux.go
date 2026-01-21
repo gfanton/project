@@ -149,9 +149,16 @@ func (s *TmuxService) NewWindow(ctx context.Context, sessionName, windowName, wo
 }
 
 // SwitchWindow switches to a window in a session
+// This first switches to the session (if needed) then selects the window
 func (s *TmuxService) SwitchWindow(ctx context.Context, sessionName, windowName string) error {
 	s.logger.Debug("switching to tmux window", "session", sessionName, "window", windowName)
 
+	// First, switch to the session
+	if err := s.SwitchSession(ctx, sessionName); err != nil {
+		return fmt.Errorf("failed to switch to session %s: %w", sessionName, err)
+	}
+
+	// Then select the window within that session
 	target := fmt.Sprintf("%s:%s", sessionName, windowName)
 	cmd := s.buildTmuxCommand(ctx, "select-window", "-t", target)
 	if err := cmd.Run(); err != nil {
