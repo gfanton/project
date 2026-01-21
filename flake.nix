@@ -20,7 +20,7 @@
     let
       # Global shared version for all packages and systems
       # This version is automatically updated by the release script
-      projectVersion = "0.16.6";
+      projectVersion = "0.17.0";
     in
     flake-utils.lib.eachDefaultSystem (
       system:
@@ -35,7 +35,7 @@
           src = ./.;
 
           # Vendor hash - updated by release script or manually during development
-          vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
+          vendorHash = "sha256-Mg+5sCVo2EruD1NSPCgG2y8JncTQ+HCoMTCEsIpC4gM=";
 
           # Override build flags to not use vendor mode
           buildFlags = [ "-mod=mod" ];
@@ -95,7 +95,7 @@
           src = ./.;
 
           # Same vendorHash as main project since they share go.mod
-          vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
+          vendorHash = "sha256-Mg+5sCVo2EruD1NSPCgG2y8JncTQ+HCoMTCEsIpC4gM=";
 
           # Override build flags to not use vendor mode
           buildFlags = [ "-mod=mod" ];
@@ -317,7 +317,7 @@
             pname = "project";
             version = projectVersion;
             src = ./.;
-            vendorHash = "sha256-B375AvklOVKxpIR60CatnmRgOFpqhlKyKF32isB+ncI=";
+            vendorHash = "sha256-Mg+5sCVo2EruD1NSPCgG2y8JncTQ+HCoMTCEsIpC4gM=";
             buildFlags = [ "-mod=mod" ];
             ldflags = [
               "-s"
