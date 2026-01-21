@@ -186,8 +186,8 @@
           ];
 
           shellHook = ''
-            export PROJECT_TEST_DIR="${PWD}/test-env"
-            export PROJECT_TEST_BIN="${PWD}/build/proj"
+            export PROJECT_TEST_DIR="''${PWD}/test-env"
+            export PROJECT_TEST_BIN="''${PWD}/build/proj"
           '';
         };
 
@@ -219,21 +219,21 @@
 
           shellHook = ''
             export TEST_TMUX_DIR="$(mktemp -d -t tmux-test-XXXXXX)"
-            export TEST_TMUX_SOCKET="${TEST_TMUX_DIR}/test-socket"
-            export TMUX_TMPDIR="${TEST_TMUX_DIR}"
-            export TEST_PROJECT_DIR="${TEST_TMUX_DIR}/projects"
-            mkdir -p "${TEST_PROJECT_DIR}"
+            export TEST_TMUX_SOCKET="''${TEST_TMUX_DIR}/test-socket"
+            export TMUX_TMPDIR="''${TEST_TMUX_DIR}"
+            export TEST_PROJECT_DIR="''${TEST_TMUX_DIR}/projects"
+            mkdir -p "''${TEST_PROJECT_DIR}"
 
             if [[ ! -f "./build/proj" ]]; then
               make build >/dev/null 2>&1 || echo "Warning: Failed to build proj" >&2
             fi
-            export PROJ_BINARY="${PWD}/build/proj"
+            export PROJ_BINARY="''${PWD}/build/proj"
 
-            alias test-tmux='tmux -S "${TEST_TMUX_SOCKET}"'
+            alias test-tmux='tmux -S "''${TEST_TMUX_SOCKET}"'
 
             cleanup_test_env() {
-              tmux -S "${TEST_TMUX_SOCKET}" kill-server 2>/dev/null || true
-              rm -rf "${TEST_TMUX_DIR}"
+              tmux -S "''${TEST_TMUX_SOCKET}" kill-server 2>/dev/null || true
+              rm -rf "''${TEST_TMUX_DIR}"
             }
             trap cleanup_test_env EXIT
           '';
