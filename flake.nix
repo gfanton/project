@@ -188,6 +188,11 @@
           shellHook = ''
             export PROJECT_TEST_DIR="''${PWD}/test-env"
             export PROJECT_TEST_BIN="''${PWD}/build/proj"
+
+            # Convenience wrappers for interactive testing
+            test-completion() { ./scripts/test-completion.sh "$@"; }
+            tmux-sandbox() { ./scripts/test-tmux.sh "$@"; }
+            export -f test-completion tmux-sandbox
           '';
         };
 
